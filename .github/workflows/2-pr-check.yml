@@ -31,7 +31,7 @@ jobs:
       matrix: ${{ steps.d.outputs.matrix }}
       has: ${{ steps.d.outputs.has }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - id: d
@@ -50,12 +50,12 @@ jobs:
         dir: ${{ fromJson(needs.detect.outputs.matrix) }}
     name: build (${{ matrix.dir }})
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.m2/repository
@@ -86,12 +86,12 @@ jobs:
         dir: ${{ fromJson(needs.detect.outputs.matrix) }}
     name: test+coverage (${{ matrix.dir }})
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.m2/repository
