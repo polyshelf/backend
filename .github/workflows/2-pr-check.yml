@@ -1,0 +1,141 @@
+name: PR check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  MIN_COVERAGE: 50
+
+jobs:
+  branch-name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          if [[ ! "$BRANCH" =~ ^(feat|feature|dev|fix|bug|refactoring)/ ]]; then
+            echo "::error::Имя ветки '$BRANCH' должно начинаться с feat/ feature/ dev/ fix/ bug/ refactoring/"
+            exit 1
+          fi
+
+  detect:
+    needs: branch-name
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.d.outputs.matrix }}
+      has: ${{ steps.d.outputs.has }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: d
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: bash .github/scripts/detect-changed.sh "$BASE" "$HEAD" ...
+
+  build:
+    needs: detect
+    if: needs.detect.outputs.has == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ${{ fromJson(needs.detect.outputs.matrix) }}
+    name: build (${{ matrix.dir }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: deps-${{ matrix.dir }}-${{ hashFiles(format('{0}/**/pom.xml', matrix.dir), format('{0}/**/*.gradle*', matrix.dir), format('{0}/**/gradle-wrapper.properties', matrix.dir)) }}
+          restore-keys: deps-${{ matrix.dir }}-
+      - name: Build (без тестов)
+        working-directory: ${{ matrix.dir }}
+        run: |
+          if [ -f pom.xml ]; then
+            chmod +x mvnw 2>/dev/null || true
+            MVN=$([ -x ./mvnw ] && echo ./mvnw || echo mvn)
+            $MVN -B -DskipTests clean package
+          else
+            chmod +x gradlew 2>/dev/null || true
+            GR=$([ -x ./gradlew ] && echo ./gradlew || echo gradle)
+            $GR assemble --no-daemon
+          fi
+
+  test:
+    needs: [detect, build]
+    if: needs.detect.outputs.has == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ${{ fromJson(needs.detect.outputs.matrix) }}
+    name: test+coverage (${{ matrix.dir }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: deps-${{ matrix.dir }}-${{ hashFiles(format('{0}/**/pom.xml', matrix.dir), format('{0}/**/*.gradle*', matrix.dir), format('{0}/**/gradle-wrapper.properties', matrix.dir)) }}
+          restore-keys: deps-${{ matrix.dir }}-
+      - name: Test with JaCoCo
+        working-directory: ${{ matrix.dir }}
+        run: |
+          if [ -f pom.xml ]; then
+            chmod +x mvnw 2>/dev/null || true
+            MVN=$([ -x ./mvnw ] && echo ./mvnw || echo mvn)
+            J=org.jacoco:jacoco-maven-plugin:0.8.14
+            $MVN -B $J:prepare-agent test $J:report
+          else
+            chmod +x gradlew 2>/dev/null || true
+            GR=$([ -x ./gradlew ] && echo ./gradlew || echo gradle)
+            cat > "$RUNNER_TEMP/jacoco.init.gradle" <<'GRADLE'
+          allprojects {
+            afterEvaluate { p ->
+              if (p.plugins.hasPlugin('java')) {
+                p.apply plugin: 'jacoco'
+                p.jacoco { toolVersion = '0.8.14' }
+                p.tasks.withType(Test).configureEach { finalizedBy p.tasks.named('jacocoTestReport') }
+                p.tasks.named('jacocoTestReport') { reports { csv.required = true } }
+              }
+            }
+          }
+          GRADLE
+            $GR test jacocoTestReport --no-daemon --init-script "$RUNNER_TEMP/jacoco.init.gradle"
+          fi
+      - name: Check coverage
+        working-directory: ${{ matrix.dir }}
+        run: |
+          files=$(find . -path '*jacoco*' -name '*.csv')
+          if [ -z "$files" ]; then
+            echo "::error::JaCoCo отчёты не найдены (нет тестов/классов?)"
+            exit 1
+          fi
+          cov=$(cat $files | awk -F, '$1!="GROUP"{m+=$4;c+=$5} END{if(m+c==0)print 0; else printf "%.2f", c*100/(m+c)}')
+          echo "### ${{ matrix.dir }}: coverage ${cov}% (min ${MIN_COVERAGE}%)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Coverage: ${cov}%"
+          if awk -v c="$cov" -v t="$MIN_COVERAGE" 'BEGIN{exit !(c < t)}'; then
+            echo "::error::Покрытие ${cov}% меньше ${MIN_COVERAGE}%"
+            exit 1
+          fi

@@ -1,0 +1,72 @@
+name: Code analysis (manual, PR)
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Номер PR для анализа'
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  pull-requests: read
+  security-events: write
+  actions: read
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.d.outputs.matrix }}
+      has: ${{ steps.d.outputs.has }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: d
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr_number }}
+        run: |
+          base=$(gh pr view "$PR" --json baseRefName -q .baseRefName)
+          git fetch origin "$base" "pull/$PR/head:pr-$PR"
+          git checkout -q "pr-$PR"
+          bash .github/scripts/detect-changed.sh "origin/$base" "pr-$PR" ...
+
+  analyze:
+    needs: detect
+    if: needs.detect.outputs.has == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ${{ fromJson(needs.detect.outputs.matrix) }}
+    name: analyze (${{ matrix.dir }})
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ inputs.pr_number }}/head
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: java-kotlin
+          build-mode: manual
+      - name: Build (без тестов)
+        working-directory: ${{ matrix.dir }}
+        run: |
+          if [ -f pom.xml ]; then
+            chmod +x mvnw 2>/dev/null || true
+            MVN=$([ -x ./mvnw ] && echo ./mvnw || echo mvn)
+            $MVN -B -DskipTests package
+          else
+            chmod +x gradlew 2>/dev/null || true
+            GR=$([ -x ./gradlew ] && echo ./gradlew || echo gradle)
+            $GR assemble --no-daemon
+          fi
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: /service:${{ matrix.dir }}
