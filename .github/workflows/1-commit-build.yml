@@ -1,0 +1,97 @@
+name: Commit build & test
+
+on:
+  push:
+    branches: ['**']
+
+concurrency:
+  group: commit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.d.outputs.matrix }}
+      has: ${{ steps.d.outputs.has }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: d
+        env:
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: bash .github/scripts/detect-changed.sh "$BEFORE" "$SHA" ..
+
+  build:
+    needs: detect
+    if: needs.detect.outputs.has == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ${{ fromJson(needs.detect.outputs.matrix) }}
+    name: build (${{ matrix.dir }})
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: deps-${{ matrix.dir }}-${{ hashFiles(format('{0}/**/pom.xml', matrix.dir), format('{0}/**/*.gradle*', matrix.dir), format('{0}/**/gradle-wrapper.properties', matrix.dir)) }}
+          restore-keys: deps-${{ matrix.dir }}-
+      - name: Build (без тестов)
+        working-directory: ${{ matrix.dir }}
+        run: |
+          if [ -f pom.xml ]; then
+            chmod +x mvnw 2>/dev/null || true
+            MVN=$([ -x ./mvnw ] && echo ./mvnw || echo mvn)
+            $MVN -B -DskipTests clean package
+          else
+            chmod +x gradlew 2>/dev/null || true
+            GR=$([ -x ./gradlew ] && echo ./gradlew || echo gradle)
+            $GR assemble --no-daemon
+          fi
+
+  test:
+    needs: [detect, build]
+    if: needs.detect.outputs.has == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ${{ fromJson(needs.detect.outputs.matrix) }}
+    name: test (${{ matrix.dir }})
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: deps-${{ matrix.dir }}-${{ hashFiles(format('{0}/**/pom.xml', matrix.dir), format('{0}/**/*.gradle*', matrix.dir), format('{0}/**/gradle-wrapper.properties', matrix.dir)) }}
+          restore-keys: deps-${{ matrix.dir }}-
+      - name: Test
+        working-directory: ${{ matrix.dir }}
+        run: |
+          if [ -f pom.xml ]; then
+            chmod +x mvnw 2>/dev/null || true
+            MVN=$([ -x ./mvnw ] && echo ./mvnw || echo mvn)
+            $MVN -B test
+          else
+            chmod +x gradlew 2>/dev/null || true
+            GR=$([ -x ./gradlew ] && echo ./gradlew || echo gradle)
+            $GR test --no-daemon
+          fi
