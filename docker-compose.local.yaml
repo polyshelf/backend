@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: local-postgres
+    environment:
+      POSTGRES_DB: polyshelf_db
+      POSTGRES_USER: polyshelf_user
+      POSTGRES_PASSWORD: polyshelf_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+  flyway:
+    image: flyway/flyway:11
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/polyshelf_db
+      FLYWAY_USER: polyshelf_user
+      FLYWAY_PASSWORD: polyshelf_password
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+    volumes:
+      - ./flyway/migration:/flyway/sql:ro,Z
+    command: migrate
+
+volumes:
+  postgres_data:
