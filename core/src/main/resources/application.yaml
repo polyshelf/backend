@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: polyshelf
+  datasource:
+    url: jdbc:postgresql://localhost:5432/polyshelf_db
+    username: polyshelf_user
+    password: polyshelf_password
+server:
+  port: 8081
