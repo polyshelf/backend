@@ -1,13 +1,13 @@
-package ru.polyshelf.core;
+package ru.polyshelf.gateway;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class PolyshelfApplication {
+public class GatewayApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(PolyshelfApplication.class, args);
+		SpringApplication.run(GatewayApplication.class, args);
 	}
 
 }
