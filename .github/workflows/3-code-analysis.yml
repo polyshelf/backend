@@ -55,22 +55,23 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: java-kotlin
           build-mode: manual
       - name: Build (без тестов)
-        working-directory: ${{ matrix.dir }}
+        env:
+          DIR: ${{ matrix.dir }}
         run: |
-          if [ -f pom.xml ]; then
+          if [ -f "$DIR/pom.xml" ]; then
+            cd "$DIR"
             chmod +x mvnw 2>/dev/null || true
             MVN=$([ -x ./mvnw ] && echo ./mvnw || echo mvn)
             $MVN -B -DskipTests package
           else
-            chmod +x gradlew 2>/dev/null || true
-            GR=$([ -x ./gradlew ] && echo ./gradlew || echo gradle)
-            $GR assemble --no-daemon
+            chmod +x gradlew
+            ./gradlew ":$DIR:assemble" --no-daemon
           fi
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
         with:
           category: /service:${{ matrix.dir }}
