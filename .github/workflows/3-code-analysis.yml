@@ -63,14 +63,14 @@ jobs:
         env:
           DIR: ${{ matrix.dir }}
         run: |
-          if [ -f "$DIR/pom.xml" ]; then
-            cd "$DIR"
+          cd "$DIR"
+          if [ -f pom.xml ]; then
             chmod +x mvnw 2>/dev/null || true
             MVN=$([ -x ./mvnw ] && echo ./mvnw || echo mvn)
             $MVN -B -DskipTests package
           else
             chmod +x gradlew
-            ./gradlew ":$DIR:assemble" --no-daemon
+            ./gradlew assemble --no-daemon
           fi
       - uses: github/codeql-action/analyze@v4
         with:

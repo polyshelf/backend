@@ -51,14 +51,14 @@ jobs:
             ~/.m2/repository
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: deps-${{ matrix.dir }}-${{ hashFiles('**/pom.xml', '**/*.gradle*', '**/gradle-wrapper.properties', 'gradle/libs.versions.toml') }}
+          key: deps-${{ matrix.dir }}-${{ hashFiles(format('{0}/**/pom.xml', matrix.dir), format('{0}/**/*.gradle*', matrix.dir), format('{0}/**/gradle-wrapper.properties', matrix.dir), format('{0}/gradle/libs.versions.toml', matrix.dir)) }}
           restore-keys: deps-${{ matrix.dir }}-
       - name: Build and test with JaCoCo
         env:
           DIR: ${{ matrix.dir }}
         run: |
-          if [ -f "$DIR/pom.xml" ]; then
-            cd "$DIR"
+          cd "$DIR"
+          if [ -f pom.xml ]; then
             chmod +x mvnw 2>/dev/null || true
             MVN=$([ -x ./mvnw ] && echo ./mvnw || echo mvn)
             J=org.jacoco:jacoco-maven-plugin:0.8.14
@@ -77,7 +77,7 @@ jobs:
             }
           }
           GRADLE
-            ./gradlew ":$DIR:build" --no-daemon --init-script "$RUNNER_TEMP/jacoco.init.gradle"
+            ./gradlew build --no-daemon --init-script "$RUNNER_TEMP/jacoco.init.gradle"
           fi
       - name: Check coverage
         env:
@@ -112,5 +112,5 @@ jobs:
           DIR: ${{ matrix.dir }}
         run: |
           if [ -f "$DIR/Dockerfile" ]; then
-            docker build -f "$DIR/Dockerfile" -t "polyshelf-$DIR:ci" .
+            docker build -t "polyshelf-$DIR:ci" "$DIR"
           fi

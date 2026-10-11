@@ -12,7 +12,7 @@ if [[ -z "$BASE" || "$BASE" =~ ^0+$ ]] || ! git cat-file -e "$BASE^{commit}" 2>/
   changed="$all_dirs"
 else
   files=$(git diff --name-only "${BASE}${OP}${HEAD_REF}" || true)
-  if echo "$files" | grep -qE '^(gradle/|gradlew|gradlew\.bat|settings\.gradle(\.kts)?$|build\.gradle(\.kts)?$|\.github/)'; then
+  if echo "$files" | grep -qE '^\.github/'; then
     changed="$all_dirs"
   else
     changed=$(echo "$files" | grep '/' | cut -d/ -f1 | sort -u || true)
