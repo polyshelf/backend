@@ -19,7 +19,6 @@ paths:
       tags:
         - Authentication
       summary: Регистрация пользователя
-      operationId: register
       security: [ ]
       requestBody:
         required: true
@@ -44,7 +43,6 @@ paths:
       tags:
         - Authentication
       summary: Вход пользователя
-      operationId: login
       security: [ ]
       requestBody:
         required: true
@@ -67,7 +65,6 @@ paths:
       tags:
         - Authentication
       summary: Обновить токены
-      operationId: refreshTokens
       security: [ ]
       requestBody:
         required: true
@@ -84,18 +81,6 @@ paths:
                 $ref: '#/components/schemas/AuthTokensResponse'
         '401':
           description: Refresh Token недействителен или истёк
-
-  /auth/logout:
-    post:
-      tags:
-        - Authentication
-      summary: Выйти из аккаунта на текущем устройстве
-      operationId: logout
-      responses:
-        '204':
-          description: Сессия завершена
-        '401':
-          description: Пользователь не авторизован
 
   /products/from-datamatrix:
     post:
@@ -199,29 +184,45 @@ paths:
         '404':
           description: Продукт не найден в инвентаре
 
-    patch:
+  /products/{product_uuid}/consumption:
+    parameters:
+      - name: product_uuid
+        in: path
+        required: true
+        description: UUID продукта в инвентаре
+        schema:
+          type: string
+          format: uuid
+
+    put:
       tags:
         - Products
-      summary: Изменить состояние продукта
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - consumed
-              properties:
-                consumed:
-                  type: boolean
-                  description: Употреблён ли продукт
-                  example: true
+      summary: Отметить продукт употреблённым
+      description: |
+        Отмечает продукт употреблённым.
+        Сервер устанавливает consumed_at в текущее время.
+        Если продукт уже употреблён, consumed_at не изменяется.
+      responses:
+        '201':
+          description: Отметка об употреблении создана
+        '204':
+          description: Продукт уже отмечен употреблённым
+        '404':
+          description: Продукт не найден в инвентаре
+
+    delete:
+      tags:
+        - Products
+      summary: Отменить отметку об употреблении продукта
+      description: |
+        Сбрасывает consumed_at в null.
+        Если продукт уже не отмечен употреблённым,
+        операция также считается успешной.
       responses:
         '204':
-          description: Состояние успешно изменено
+          description: Отметка об употреблении отсутствует
         '404':
-          description: Продукт не найден
-
+          description: Продукт не найден в инвентаре
 
   /products/inventory:
     get:
@@ -260,7 +261,7 @@ components:
         password:
           type: string
           format: password
-          minLength: 12
+          minLength: 6
           example: 'mySecurePassword123'
 
     RefreshTokenRequest:
