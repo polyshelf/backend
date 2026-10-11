@@ -1,0 +1,70 @@
+name: polyshelf
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-polyshelf_db}
+      POSTGRES_USER: ${POSTGRES_USER:-polyshelf_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-polyshelf_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [backend]
+
+  migrations:
+    build:
+      context: ./flyway
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-polyshelf_db}
+      FLYWAY_USER: ${POSTGRES_USER:-polyshelf_user}
+      FLYWAY_PASSWORD: ${POSTGRES_PASSWORD:-polyshelf_password}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks: [backend]
+
+  core:
+    build:
+      context: .
+      dockerfile: core/Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-polyshelf_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-polyshelf_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-polyshelf_password}
+      POLYSHELF_INTERNAL_API_KEY: ${POLYSHELF_INTERNAL_API_KEY:?задайте POLYSHELF_INTERNAL_API_KEY в .env}
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    networks: [backend]
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    environment:
+      POLYSHELF_INTERNAL_API_KEY: ${POLYSHELF_INTERNAL_API_KEY:?задайте POLYSHELF_INTERNAL_API_KEY в .env}
+      POLYSHELF_JWT_PRIVATE_KEY: file:/run/keys/private.pem
+      POLYSHELF_JWT_PUBLIC_KEY: file:/run/keys/public.pem
+      POLYSHELF_CORE_URL: http://core:8081
+      POLYSHELF_CODE_ADAPTER_URL: ${POLYSHELF_CODE_ADAPTER_URL:-http://code-adapter:8082}
+      POLYSHELF_CATALOG_URL: ${POLYSHELF_CATALOG_URL:-http://catalog:8083}
+    volumes:
+      - ./keys:/run/keys:ro
+    depends_on:
+      - core
+    networks: [backend]
+
+networks:
+  backend:
+
+volumes:
+  postgres_data:
+    #TODO:
