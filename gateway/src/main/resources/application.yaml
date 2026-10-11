@@ -1,12 +1,40 @@
 spring:
   application:
     name: gateway
-  cloud:
-    gateway:
-      server:
-        webmvc:
-          routes:
-            - id: core
-              uri: http://localhost:8081
-              predicates:
-                - Path=/api/core/**
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+polyshelf:
+  internal:
+    # обязателен: без POLYSHELF_INTERNAL_API_KEY приложение не стартует (локально - профиль local)
+    api-key: ${POLYSHELF_INTERNAL_API_KEY:}
+  security:
+    jwt:
+      issuer: polyshelf-gateway
+      access-token-ttl: 15m
+      private-key: ${POLYSHELF_JWT_PRIVATE_KEY:}
+      public-key: ${POLYSHELF_JWT_PUBLIC_KEY:}
+      allow-ephemeral-keys: false
+  limits:
+    max-body-size: 64KB
+    auth-requests-per-minute: 30
+  clients:
+    core:
+      url: ${POLYSHELF_CORE_URL:http://core:8081}
+      connect-timeout: 2s
+      read-timeout: 5s
+    catalog:
+      url: ${POLYSHELF_CATALOG_URL:http://catalog:8083}
+      connect-timeout: 2s
+      read-timeout: 5s
+    code-adapter:
+      url: ${POLYSHELF_CODE_ADAPTER_URL:http://code-adapter:8082}
+      connect-timeout: 2s
+      read-timeout: 10s

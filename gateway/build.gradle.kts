@@ -26,9 +26,16 @@ dependencyManagement {
 }
 
 dependencies {
+    implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.spring.cloud.gateway)
     implementation(libs.spring.boot.starter.security)
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation(libs.spring.boot.starter.actuator)
+
+    compileOnly(libs.lombok.core)
+
+    annotationProcessor(libs.lombok.core)
 
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.spring.boot.starter.security.test)

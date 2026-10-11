@@ -1,0 +1,13 @@
+polyshelf:
+  clients:
+    core:
+      url: http://localhost:8081
+    catalog:
+      url: http://localhost:8083
+    code-adapter:
+      url: http://localhost:8082
+  internal:
+    api-key: local-dev-internal-key
+  security:
+    jwt:
+      allow-ephemeral-keys: true

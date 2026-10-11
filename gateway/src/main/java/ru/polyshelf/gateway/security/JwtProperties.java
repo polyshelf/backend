@@ -1,0 +1,19 @@
+package ru.polyshelf.gateway.security;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import java.time.Duration;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.validation.annotation.Validated;
+
+@Validated
+@ConfigurationProperties(prefix = "polyshelf.security.jwt")
+public record JwtProperties(
+        @NotBlank @DefaultValue("polyshelf-gateway") String issuer,
+        @NotNull @DefaultValue("15m") Duration accessTokenTtl,
+        String privateKey,
+        String publicKey,
+        boolean allowEphemeralKeys
+) {
+}
