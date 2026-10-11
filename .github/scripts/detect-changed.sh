@@ -6,10 +6,17 @@ HEAD_REF="${2:-HEAD}"
 OP="${3:-..}"
 OUT="${GITHUB_OUTPUT:-/dev/stdout}"
 
+all_dirs=$(git ls-tree -d --name-only "$HEAD_REF")
+
 if [[ -z "$BASE" || "$BASE" =~ ^0+$ ]] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-  changed=$(git ls-tree -d --name-only "$HEAD_REF")
+  changed="$all_dirs"
 else
-  changed=$(git diff --name-only "${BASE}${OP}${HEAD_REF}" | grep '/' | cut -d/ -f1 | sort -u || true)
+  files=$(git diff --name-only "${BASE}${OP}${HEAD_REF}" || true)
+  if echo "$files" | grep -qE '^\.github/'; then
+    changed="$all_dirs"
+  else
+    changed=$(echo "$files" | grep '/' | cut -d/ -f1 | sort -u || true)
+  fi
 fi
 
 dirs=""
