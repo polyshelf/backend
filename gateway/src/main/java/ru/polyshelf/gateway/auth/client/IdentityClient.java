@@ -15,9 +15,9 @@ import ru.polyshelf.gateway.common.error.UpstreamContractException;
 public class IdentityClient {
 
     private static final String SERVICE_NAME = "core";
-    private static final String REGISTER_PATH = "/internal/auth/register";
-    private static final String LOGIN_PATH = "/internal/auth/login";
-    private static final String REFRESH_PATH = "/internal/auth/refresh";
+    private static final String REGISTER = "register";
+    private static final String LOGIN = "login";
+    private static final String REFRESH = "refresh";
 
     private final RestClient client;
 
@@ -27,31 +27,31 @@ public class IdentityClient {
 
     public IdentitySession register(String email, String password) {
         try {
-            return exchange(REGISTER_PATH, new CredentialsPayload(email, password));
-        } catch (HttpClientErrorException.Conflict e) {
+            return exchange(REGISTER, new CredentialsPayload(email, password));
+        } catch (HttpClientErrorException.Conflict _) {
             throw new EmailAlreadyRegisteredException();
         }
     }
 
     public IdentitySession login(String email, String password) {
         try {
-            return exchange(LOGIN_PATH, new CredentialsPayload(email, password));
-        } catch (HttpClientErrorException.Unauthorized e) {
+            return exchange(LOGIN, new CredentialsPayload(email, password));
+        } catch (HttpClientErrorException.Unauthorized _) {
             throw new InvalidCredentialsException();
         }
     }
 
     public IdentitySession refresh(String refreshToken) {
         try {
-            return exchange(REFRESH_PATH, new RefreshTokenPayload(refreshToken));
-        } catch (HttpClientErrorException.Unauthorized e) {
+            return exchange(REFRESH, new RefreshTokenPayload(refreshToken));
+        } catch (HttpClientErrorException.Unauthorized _) {
             throw new InvalidRefreshTokenException();
         }
     }
 
-    private IdentitySession exchange(String path, Object payload) {
+    private IdentitySession exchange(String action, Object payload) {
         IdentitySession session = client.post()
-                .uri(path)
+                .uri(uri -> uri.pathSegment("internal", "auth", action).build())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(payload)
                 .retrieve()

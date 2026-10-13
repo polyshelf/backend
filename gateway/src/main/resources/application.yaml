@@ -13,7 +13,6 @@ management:
 
 polyshelf:
   internal:
-    # обязателен: без POLYSHELF_INTERNAL_API_KEY приложение не стартует (локально - профиль local)
     api-key: ${POLYSHELF_INTERNAL_API_KEY:}
   security:
     jwt:

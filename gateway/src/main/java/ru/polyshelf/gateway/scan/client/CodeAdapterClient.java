@@ -11,7 +11,7 @@ import ru.polyshelf.gateway.common.error.UpstreamContractException;
 public class CodeAdapterClient {
 
     private static final String SERVICE_NAME = "code-adapter";
-    private static final String PROCESS_PATH = "/process";
+    private static final String PROCESS = "process";
 
     private final RestClient client;
 
@@ -21,7 +21,7 @@ public class CodeAdapterClient {
 
     public CodeAdapterResult process(String code) {
         CodeAdapterResult result = client.post()
-                .uri(PROCESS_PATH)
+                .uri(uri -> uri.pathSegment(PROCESS).build())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new ProcessCodePayload(code))
                 .retrieve()

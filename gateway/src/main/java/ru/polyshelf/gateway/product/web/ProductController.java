@@ -1,6 +1,7 @@
 package ru.polyshelf.gateway.product.web;
 
 import jakarta.validation.Valid;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,12 +32,14 @@ public class ProductController {
     }
 
     @PostMapping("/from-barcode")
-    public ResponseEntity<?> fromBarcode(@AuthenticationPrincipal Jwt jwt,
-                                         @Valid @RequestBody ProductBarcodeRequest request) {
-        return productService.addFromBarcode(AuthenticatedUser.from(jwt).id(), request)
-                .<ResponseEntity<?>>map(product -> ResponseEntity.status(HttpStatus.CREATED).body(product))
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(ProductNotFoundResponse.of(request.code().trim())));
+    public ResponseEntity<Object> fromBarcode(@AuthenticationPrincipal Jwt jwt,
+                                              @Valid @RequestBody ProductBarcodeRequest request) {
+        Optional<ProductSuccessResponse> product =
+                productService.addFromBarcode(AuthenticatedUser.from(jwt).id(), request);
+        if (product.isPresent()) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(product.get());
+        }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ProductNotFoundResponse.of(request.code().trim()));
     }
 
     @PostMapping("/from-barcode-candidate")

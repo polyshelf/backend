@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -28,7 +29,7 @@ import ru.polyshelf.gateway.scan.model.PreparedRequest;
 
 class ProductServiceTest {
 
-    private static final LocalDate DATE = LocalDate.of(2030, 1, 1);
+    private static final LocalDate DATE = LocalDate.of(2030, Month.JANUARY, 1);
     private static final Map<String, Object> SAVED = Map.of("id", "1", "name", "Milk");
 
     private final CodeAdapterClient adapter = mock(CodeAdapterClient.class);

@@ -13,8 +13,8 @@ import ru.polyshelf.gateway.common.config.HttpClientsConfiguration;
 @Component
 public class CatalogClient {
 
-    private static final String PRODUCT_BY_CODE_PATH = "/product-by-code?code={code}";
-    private static final String NEW_PRODUCT_PATH = "/new-product";
+    private static final String PRODUCT_BY_CODE = "product-by-code";
+    private static final String NEW_PRODUCT = "new-product";
     private static final ParameterizedTypeReference<Map<String, Object>> PRODUCT_TYPE =
             new ParameterizedTypeReference<>() {
             };
@@ -28,17 +28,17 @@ public class CatalogClient {
     public Optional<Map<String, Object>> findProductByCode(String code) {
         try {
             return Optional.ofNullable(client.get()
-                    .uri(PRODUCT_BY_CODE_PATH, code)
+                    .uri(uri -> uri.pathSegment(PRODUCT_BY_CODE).queryParam("code", "{code}").build(code))
                     .retrieve()
                     .body(PRODUCT_TYPE));
-        } catch (HttpClientErrorException.NotFound e) {
+        } catch (HttpClientErrorException.NotFound _) {
             return Optional.empty();
         }
     }
 
     public Optional<Map<String, Object>> createProduct(NewProductPayload payload) {
         return Optional.ofNullable(client.post()
-                .uri(NEW_PRODUCT_PATH)
+                .uri(uri -> uri.pathSegment(NEW_PRODUCT).build())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(payload)
                 .retrieve()

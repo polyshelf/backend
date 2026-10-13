@@ -7,7 +7,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.nio.charset.StandardCharsets;
 
-@SuppressWarnings("unused")
 public record AuthCredentials(
         @NotBlank @Email @Size(max = 255) String email,
         @NotBlank @Size(min = 6, max = 72) String password

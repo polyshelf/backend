@@ -25,6 +25,7 @@ import ru.polyshelf.gateway.common.properties.InternalApiProperties;
 @Configuration
 public class CoreRouteConfiguration {
 
+    private static final String PRODUCTS_PREFIX = "/products/";
     private static final String UUID_SEGMENT = "{product_uuid:[0-9a-fA-F-]+}";
 
     @Bean
@@ -39,9 +40,9 @@ public class CoreRouteConfiguration {
     static RequestPredicate inventoryOperations() {
         return POST("/products")
                 .or(GET("/products/inventory"))
-                .or(DELETE("/products/" + UUID_SEGMENT))
-                .or(PUT("/products/" + UUID_SEGMENT + "/consumption"))
-                .or(DELETE("/products/" + UUID_SEGMENT + "/consumption"));
+                .or(DELETE(PRODUCTS_PREFIX + UUID_SEGMENT))
+                .or(PUT(PRODUCTS_PREFIX + UUID_SEGMENT + "/consumption"))
+                .or(DELETE(PRODUCTS_PREFIX + UUID_SEGMENT + "/consumption"));
     }
 
     private static Function<ServerRequest, ServerRequest> internalIdentityHeaders(String apiKey) {

@@ -14,7 +14,7 @@ import ru.polyshelf.gateway.product.model.ProductSuccessResponse;
 public class InventoryClient {
 
     private static final String SERVICE_NAME = "core";
-    private static final String PRODUCTS_PATH = "/products";
+    private static final String PRODUCTS = "products";
 
     private final RestClient client;
 
@@ -24,7 +24,7 @@ public class InventoryClient {
 
     public ProductSuccessResponse add(int userId, String name, LocalDate expirationDate) {
         ProductSuccessResponse response = client.post()
-                .uri(PRODUCTS_PATH)
+                .uri(uri -> uri.pathSegment(PRODUCTS).build())
                 .header(InternalHeaders.USER_ID, Integer.toString(userId))
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new InventoryRequest(name, expirationDate))

@@ -75,7 +75,7 @@ public class ProductService {
     private static LocalDate date(Map<String, Object> product) {
         try {
             return LocalDate.parse(text(product, EXPIRATION_DATE, CODE_ADAPTER));
-        } catch (DateTimeParseException e) {
+        } catch (DateTimeParseException _) {
             throw new UpstreamContractException(CODE_ADAPTER, "invalid field '" + EXPIRATION_DATE + "'");
         }
     }
