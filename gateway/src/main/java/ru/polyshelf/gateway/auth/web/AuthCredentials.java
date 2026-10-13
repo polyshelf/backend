@@ -7,14 +7,15 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.nio.charset.StandardCharsets;
 
-public record RegisterRequest(
+@SuppressWarnings("unused")
+public record AuthCredentials(
         @NotBlank @Email @Size(max = 255) String email,
-        @NotBlank @Size(min = 8, max = 72) String password
+        @NotBlank @Size(min = 6, max = 72) String password
 ) {
 
     private static final int BCRYPT_MAX_BYTES = 72;
 
-    public RegisterRequest {
+    public AuthCredentials {
         email = Emails.normalize(email);
     }
 

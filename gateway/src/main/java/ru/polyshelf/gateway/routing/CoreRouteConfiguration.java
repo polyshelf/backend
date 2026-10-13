@@ -1,19 +1,20 @@
 package ru.polyshelf.gateway.routing;
 
-import static org.springframework.cloud.gateway.server.mvc.filter.BeforeFilterFunctions.stripPrefix;
 import static org.springframework.cloud.gateway.server.mvc.filter.BeforeFilterFunctions.uri;
 import static org.springframework.cloud.gateway.server.mvc.handler.GatewayRouterFunctions.route;
 import static org.springframework.cloud.gateway.server.mvc.handler.HandlerFunctions.http;
-import static org.springframework.web.servlet.function.RequestPredicates.path;
+import static org.springframework.web.servlet.function.RequestPredicates.DELETE;
+import static org.springframework.web.servlet.function.RequestPredicates.GET;
+import static org.springframework.web.servlet.function.RequestPredicates.POST;
+import static org.springframework.web.servlet.function.RequestPredicates.PUT;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.function.Function;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.servlet.function.RequestPredicate;
 import org.springframework.web.servlet.function.RouterFunction;
 import org.springframework.web.servlet.function.ServerRequest;
 import org.springframework.web.servlet.function.ServerResponse;
@@ -24,31 +25,23 @@ import ru.polyshelf.gateway.common.properties.InternalApiProperties;
 @Configuration
 public class CoreRouteConfiguration {
 
-    private static final String CORE_PATH_PATTERN = "/api/core/**";
-    private static final int CORE_PATH_SEGMENTS = 2;
+    private static final String UUID_SEGMENT = "{product_uuid:[0-9a-fA-F-]+}";
 
     @Bean
     public RouterFunction<ServerResponse> coreRoute(ClientsProperties clients, InternalApiProperties internalApi) {
         return route("core")
-                .route(path(CORE_PATH_PATTERN).and(request -> isExposedPath(request.path())), http())
+                .route(inventoryOperations(), http())
                 .before(uri(clients.core().url()))
-                .before(stripPrefix(CORE_PATH_SEGMENTS))
                 .before(internalIdentityHeaders(internalApi.apiKey()))
                 .build();
     }
 
-    /**
-     * Служебный API ядра (/internal/**) не должен быть достижим через прокси: gateway сам добавляет
-     * внутренний ключ, и клиент мог бы вызвать его с чужим userId.
-     */
-    static boolean isExposedPath(String path) {
-        List<String> segments = Arrays.stream(path.split("/")).filter(segment -> !segment.isEmpty()).toList();
-        List<String> rest = segments.size() > CORE_PATH_SEGMENTS
-                ? segments.subList(CORE_PATH_SEGMENTS, segments.size())
-                : List.of();
-        boolean suspicious = rest.stream().anyMatch(segment ->
-                segment.equals("..") || segment.equals(".") || segment.contains(";") || segment.contains("%"));
-        return !suspicious && (rest.isEmpty() || !rest.get(0).equalsIgnoreCase("internal"));
+    static RequestPredicate inventoryOperations() {
+        return POST("/products")
+                .or(GET("/products/inventory"))
+                .or(DELETE("/products/" + UUID_SEGMENT))
+                .or(PUT("/products/" + UUID_SEGMENT + "/consumption"))
+                .or(DELETE("/products/" + UUID_SEGMENT + "/consumption"));
     }
 
     private static Function<ServerRequest, ServerRequest> internalIdentityHeaders(String apiKey) {

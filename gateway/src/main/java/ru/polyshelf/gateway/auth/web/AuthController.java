@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import ru.polyshelf.gateway.auth.service.AuthService;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
@@ -19,23 +19,17 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public TokenResponse register(@Valid @RequestBody RegisterRequest request) {
+    public AuthTokensResponse register(@Valid @RequestBody AuthCredentials request) {
         return authService.register(request);
     }
 
     @PostMapping("/login")
-    public TokenResponse login(@Valid @RequestBody LoginRequest request) {
+    public AuthTokensResponse login(@Valid @RequestBody AuthCredentials request) {
         return authService.login(request);
     }
 
     @PostMapping("/refresh")
-    public TokenResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+    public AuthTokensResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
         return authService.refresh(request);
-    }
-
-    @PostMapping("/logout")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void logout(@Valid @RequestBody RefreshTokenRequest request) {
-        authService.logout(request);
     }
 }

@@ -22,24 +22,24 @@ class RequestFiltersTest {
     void limitsAuthRequestsPerAddress() throws Exception {
         AuthRateLimitFilter filter = new AuthRateLimitFilter(new LimitsProperties(DataSize.ofKilobytes(1), 2), clock);
 
-        assertThat(call(filter, "/api/auth/login", "1.1.1.1").getStatus()).isEqualTo(200);
-        assertThat(call(filter, "/api/auth/login", "1.1.1.1").getStatus()).isEqualTo(200);
-        MockHttpServletResponse limited = call(filter, "/api/auth/login", "1.1.1.1");
+        assertThat(call(filter, "/auth/login", "1.1.1.1").getStatus()).isEqualTo(200);
+        assertThat(call(filter, "/auth/login", "1.1.1.1").getStatus()).isEqualTo(200);
+        MockHttpServletResponse limited = call(filter, "/auth/login", "1.1.1.1");
 
         assertThat(limited.getStatus()).isEqualTo(429);
         assertThat(limited.getHeader("Retry-After")).isEqualTo("60");
         assertThat(limited.getContentAsString()).contains("RATE_LIMITED");
-        assertThat(call(filter, "/api/auth/login", "2.2.2.2").getStatus()).isEqualTo(200);
-        assertThat(call(filter, "/api/scan", "1.1.1.1").getStatus()).isEqualTo(200);
+        assertThat(call(filter, "/auth/login", "2.2.2.2").getStatus()).isEqualTo(200);
+        assertThat(call(filter, "/products/from-barcode", "1.1.1.1").getStatus()).isEqualTo(200);
     }
 
     @Test
     void rejectsOversizedBodies() throws Exception {
         RequestSizeLimitFilter filter = new RequestSizeLimitFilter(new LimitsProperties(DataSize.ofBytes(10), 0));
-        MockHttpServletRequest big = new MockHttpServletRequest("POST", "/api/cz-response");
+        MockHttpServletRequest big = new MockHttpServletRequest("POST", "/products/from-datamatrix");
         big.setContent(new byte[11]);
         MockHttpServletResponse rejected = new MockHttpServletResponse();
-        MockHttpServletRequest small = new MockHttpServletRequest("POST", "/api/cz-response");
+        MockHttpServletRequest small = new MockHttpServletRequest("POST", "/products/from-datamatrix");
         small.setContent(new byte[10]);
         MockHttpServletResponse accepted = new MockHttpServletResponse();
 

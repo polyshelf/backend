@@ -18,7 +18,6 @@ public class IdentityClient {
     private static final String REGISTER_PATH = "/internal/auth/register";
     private static final String LOGIN_PATH = "/internal/auth/login";
     private static final String REFRESH_PATH = "/internal/auth/refresh";
-    private static final String LOGOUT_PATH = "/internal/auth/logout";
 
     private final RestClient client;
 
@@ -48,15 +47,6 @@ public class IdentityClient {
         } catch (HttpClientErrorException.Unauthorized e) {
             throw new InvalidRefreshTokenException();
         }
-    }
-
-    public void logout(String refreshToken) {
-        client.post()
-                .uri(LOGOUT_PATH)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(new RefreshTokenPayload(refreshToken))
-                .retrieve()
-                .toBodilessEntity();
     }
 
     private IdentitySession exchange(String path, Object payload) {

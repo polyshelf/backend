@@ -14,7 +14,6 @@ import ru.polyshelf.gateway.common.config.HttpClientsConfiguration;
 public class CatalogClient {
 
     private static final String PRODUCT_BY_CODE_PATH = "/product-by-code?code={code}";
-    public static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
     private static final String NEW_PRODUCT_PATH = "/new-product";
     private static final ParameterizedTypeReference<Map<String, Object>> PRODUCT_TYPE =
             new ParameterizedTypeReference<>() {
@@ -37,15 +36,12 @@ public class CatalogClient {
         }
     }
 
-    public void createProduct(NewProductPayload payload, String idempotencyKey) {
-        RestClient.RequestBodySpec request = client.post()
+    public Optional<Map<String, Object>> createProduct(NewProductPayload payload) {
+        return Optional.ofNullable(client.post()
                 .uri(NEW_PRODUCT_PATH)
-                .contentType(MediaType.APPLICATION_JSON);
-        if (idempotencyKey != null) {
-            request = request.header(IDEMPOTENCY_KEY_HEADER, idempotencyKey);
-        }
-        request.body(payload)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(payload)
                 .retrieve()
-                .toBodilessEntity();
+                .body(PRODUCT_TYPE));
     }
 }

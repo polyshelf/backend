@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.Clock;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -18,7 +19,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
 
     private static final long WINDOW_MILLIS = 60_000;
     private static final int CLEANUP_THRESHOLD = 10_000;
-    private static final String AUTH_PREFIX = "/api/auth/";
+    private static final String AUTH_PREFIX = "/auth/";
 
     private final int limit;
     private final Clock clock;
@@ -30,12 +31,14 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         return limit <= 0 || !request.getRequestURI().startsWith(AUTH_PREFIX);
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+    protected void doFilterInternal(@NonNull HttpServletRequest request,
+                                    @NonNull HttpServletResponse response,
+                                    @NonNull FilterChain chain)
             throws ServletException, IOException {
         long now = clock.millis();
         Window window = windows.compute(request.getRemoteAddr(), (key, old) ->

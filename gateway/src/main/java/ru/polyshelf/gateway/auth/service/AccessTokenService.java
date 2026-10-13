@@ -37,6 +37,6 @@ public class AccessTokenService {
         JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256).build();
 
         String value = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
-        return new AccessToken(value, expiresAt);
+        return new AccessToken(value, properties.accessTokenTtl().toSeconds());
     }
 }

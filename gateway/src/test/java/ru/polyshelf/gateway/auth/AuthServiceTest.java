@@ -2,7 +2,6 @@ package ru.polyshelf.gateway.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
@@ -14,10 +13,9 @@ import ru.polyshelf.gateway.auth.client.IdentityClient;
 import ru.polyshelf.gateway.auth.client.IdentitySession;
 import ru.polyshelf.gateway.auth.service.AccessTokenService;
 import ru.polyshelf.gateway.auth.service.AuthService;
-import ru.polyshelf.gateway.auth.web.LoginRequest;
+import ru.polyshelf.gateway.auth.web.AuthCredentials;
+import ru.polyshelf.gateway.auth.web.AuthTokensResponse;
 import ru.polyshelf.gateway.auth.web.RefreshTokenRequest;
-import ru.polyshelf.gateway.auth.web.RegisterRequest;
-import ru.polyshelf.gateway.auth.web.TokenResponse;
 import ru.polyshelf.gateway.common.config.ClockConfiguration;
 import ru.polyshelf.gateway.security.AuthenticatedUser;
 import ru.polyshelf.gateway.security.JwtConfiguration;
@@ -39,30 +37,27 @@ class AuthServiceTest {
 
     @Test
     void registerNormalizesEmailAndIssuesVerifiableToken() {
-        when(identity.register("user@example.com", "password1"))
+        when(identity.register("user@example.com", "secret1"))
                 .thenReturn(new IdentitySession(42, "user@example.com", "refresh-1", REFRESH_EXPIRES));
 
-        TokenResponse response = service.register(new RegisterRequest("  User@Example.COM ", "password1"));
+        AuthTokensResponse response = service.register(new AuthCredentials("  User@Example.COM ", "secret1"));
 
         assertThat(response.tokenType()).isEqualTo("Bearer");
         assertThat(response.refreshToken()).isEqualTo("refresh-1");
-        assertThat(response.refreshTokenExpiresAt()).isEqualTo(REFRESH_EXPIRES);
+        assertThat(response.expiresIn()).isEqualTo(900);
         Jwt decoded = jwt.jwtDecoder(keys, properties).decode(response.accessToken());
         AuthenticatedUser user = AuthenticatedUser.from(decoded);
         assertThat(user.id()).isEqualTo(42);
         assertThat(user.email()).isEqualTo("user@example.com");
-        assertThat(response.accessTokenExpiresAt()).isAfter(Instant.now());
     }
 
     @Test
-    void loginRefreshAndLogoutDelegateToIdentity() {
+    void loginAndRefreshDelegateToIdentity() {
         IdentitySession session = new IdentitySession(7, "a@b.co", "r2", REFRESH_EXPIRES);
         when(identity.login("a@b.co", "secret")).thenReturn(session);
         when(identity.refresh("r1")).thenReturn(session);
 
-        assertThat(service.login(new LoginRequest("A@B.co", "secret")).refreshToken()).isEqualTo("r2");
+        assertThat(service.login(new AuthCredentials("A@B.co", "secret")).refreshToken()).isEqualTo("r2");
         assertThat(service.refresh(new RefreshTokenRequest("r1")).refreshToken()).isEqualTo("r2");
-        service.logout(new RefreshTokenRequest("r1"));
-        verify(identity).logout("r1");
     }
 }

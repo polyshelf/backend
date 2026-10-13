@@ -1,21 +1,19 @@
 package ru.polyshelf.gateway.catalog.service;
 
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
-import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import ru.polyshelf.gateway.catalog.client.CatalogClient;
 import ru.polyshelf.gateway.catalog.client.NewProductPayload;
-import ru.polyshelf.gateway.catalog.exception.InvalidIdempotencyKeyException;
-import ru.polyshelf.gateway.catalog.web.NewProductRequest;
+import ru.polyshelf.gateway.common.error.UpstreamContractException;
 
 @Service
 @RequiredArgsConstructor
 public class CatalogService {
 
-    private static final Pattern IDEMPOTENCY_KEY = Pattern.compile("[A-Za-z0-9_-]{1,128}");
+    private static final String CATALOG = "catalog";
 
     private final CatalogClient catalogClient;
 
@@ -23,14 +21,8 @@ public class CatalogService {
         return catalogClient.findProductByCode(code);
     }
 
-    public void registerNewProduct(int userId, NewProductRequest request, String idempotencyKey) {
-        String key = StringUtils.hasText(idempotencyKey) ? idempotencyKey.trim() : null;
-        if (key != null && !IDEMPOTENCY_KEY.matcher(key).matches()) {
-            throw new InvalidIdempotencyKeyException();
-        }
-        String barcode = StringUtils.hasText(request.barcode()) ? request.barcode().trim() : null;
-        catalogClient.createProduct(
-                new NewProductPayload(userId, barcode, request.name().trim(), request.expirationDate()),
-                key);
+    public Map<String, Object> registerNewProduct(int userId, String barcode, String name, LocalDate expirationDate) {
+        return catalogClient.createProduct(new NewProductPayload(userId, barcode.trim(), name.trim(), expirationDate))
+                .orElseThrow(() -> new UpstreamContractException(CATALOG, "empty product information"));
     }
 }

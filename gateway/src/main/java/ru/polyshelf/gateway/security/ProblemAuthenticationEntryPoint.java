@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Locale;
+import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -22,15 +23,15 @@ public class ProblemAuthenticationEntryPoint implements AuthenticationEntryPoint
     private final BearerTokenAuthenticationEntryPoint bearer = new BearerTokenAuthenticationEntryPoint();
 
     @Override
-    public void commence(HttpServletRequest request, HttpServletResponse response,
-                         AuthenticationException exception) throws IOException {
+    public void commence(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
+                         @NonNull AuthenticationException exception) throws IOException {
         bearer.commence(request, response, exception);
         ProblemResponses.write(response, HttpStatus.UNAUTHORIZED, codeOf(exception), "Authentication required");
     }
 
     @Override
-    public void handle(HttpServletRequest request, HttpServletResponse response,
-                       AccessDeniedException exception) throws IOException {
+    public void handle(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
+                       @NonNull AccessDeniedException exception) throws IOException {
         ProblemResponses.write(response, HttpStatus.FORBIDDEN, "ACCESS_DENIED", "Access denied");
     }
 

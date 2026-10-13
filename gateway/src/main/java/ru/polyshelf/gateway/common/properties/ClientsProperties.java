@@ -7,6 +7,7 @@ import org.springframework.validation.annotation.Validated;
 
 @Validated
 @ConfigurationProperties(prefix = "polyshelf.clients")
+@SuppressWarnings("unused")
 public record ClientsProperties(
         @Valid @NotNull ServiceProperties core,
         @Valid @NotNull ServiceProperties codeAdapter,
