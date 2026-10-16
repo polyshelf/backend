@@ -1,6 +1,6 @@
 spring:
   application:
-    name: polyshelf
+    name: polyshelf-core
   datasource:
     url: jdbc:postgresql://localhost:5432/polyshelf_db
     username: polyshelf_user

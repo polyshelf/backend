@@ -25,7 +25,7 @@ import java.util.UUID;
 @Setter
 @Entity
 @Table(name = "user_inventory")
-public class UserInventory {
+public class InventoryItemEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -33,15 +33,13 @@ public class UserInventory {
     private UUID id;
 
     @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    @JoinColumn(name = "user_id", nullable = false)
-    private AppUser user;
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @OnDelete(action = OnDeleteAction.RESTRICT)
     @JoinColumn(name = "product_id")
-    private Product product;
+    private ProductEntity product;
 
     @Column(name = "custom_name", columnDefinition = "varchar")
     private String customName;

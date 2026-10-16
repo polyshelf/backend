@@ -21,7 +21,7 @@ import java.time.OffsetDateTime;
 @Setter
 @Entity
 @Table(name = "product_catalog")
-public class Product {
+public class ProductEntity {
 
     public enum Source {
         OPENFOODFACTS,

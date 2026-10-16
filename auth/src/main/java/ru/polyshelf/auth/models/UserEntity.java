@@ -1,4 +1,4 @@
-package ru.polyshelf.core.models;
+package ru.polyshelf.auth.models;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -18,7 +18,7 @@ import java.time.OffsetDateTime;
 @Setter
 @Entity
 @Table(name = "app_user")
-public class AppUser {
+public class UserEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
