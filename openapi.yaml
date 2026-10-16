@@ -1,0 +1,434 @@
+openapi: 3.1.0
+info:
+  title: Polyshelf
+  description: Polyshelf
+  version: 1.0.0
+servers:
+  - url: 'http://localhost:8080'
+tags:
+  - name: Products
+    description: Операции с продуктами
+  - name: Authentication
+    description: Авторизация и управление сессией
+security:
+  - bearerAuth: [ ]
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Регистрация пользователя
+      security: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthCredentials'
+      responses:
+        '201':
+          description: Пользователь зарегистрирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokensResponse'
+        '400':
+          description: Некорректный email или пароль
+        '409':
+          description: Email уже зарегистрирован
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Вход пользователя
+      security: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthCredentials'
+      responses:
+        '200':
+          description: Авторизация успешна
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokensResponse'
+        '401':
+          description: Неверный email или пароль
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Обновить токены
+      security: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Токены успешно обновлены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokensResponse'
+        '401':
+          description: Refresh Token недействителен или истёк
+
+  /products/from-datamatrix:
+    post:
+      tags:
+        - Products
+      summary: Добавить продукт по DataMatrix
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductDataMatrixRequest'
+      responses:
+        '201':
+          description: Продукт успешно добавлен. Информация о продукте
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductSuccessResponse'
+
+  /products/from-barcode:
+    post:
+      tags:
+        - Products
+      summary: Добавить продукт с указанием штрихкода и конца срока годности
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductBarcodeRequest'
+      responses:
+        '201':
+          description: Продукт успешно добавлен. Информация о продукте
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductSuccessResponse'
+        '404':
+          description: Продукт не найден в базе. Нужно добавить его через /from-barcode-candidate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductNotFoundResponse'
+
+  /products/from-barcode-candidate:
+    post:
+      tags:
+        - Products
+      summary: Добавить продукт с кодом, которого еще нет в базе
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductBarcodeCandidateRequest'
+      responses:
+        '201':
+          description: Продукт успешно добавлен. Информация о продукте
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductSuccessResponse'
+
+  /products:
+    post:
+      tags:
+        - Products
+      summary: Добавить продукт без кода
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductWithoutCodeRequest'
+      responses:
+        '201':
+          description: Продукт успешно добавлен. Информация о продукте
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductSuccessResponse'
+
+  /products/{product_uuid}:
+    parameters:
+      - name: product_uuid
+        in: path
+        required: true
+        description: UUID продукта в инвентаре
+        schema:
+          type: string
+          format: uuid
+
+    delete:
+      tags:
+        - Products
+      summary: Удалить продукт из инвентаря
+      responses:
+        '204':
+          description: Продукт успешно удалён
+        '404':
+          description: Продукт не найден в инвентаре
+
+  /products/{product_uuid}/consumption:
+    parameters:
+      - name: product_uuid
+        in: path
+        required: true
+        description: UUID продукта в инвентаре
+        schema:
+          type: string
+          format: uuid
+
+    put:
+      tags:
+        - Products
+      summary: Отметить продукт употреблённым
+      description: |
+        Отмечает продукт употреблённым.
+        Сервер устанавливает consumed_at в текущее время.
+        Если продукт уже употреблён, consumed_at не изменяется.
+      responses:
+        '201':
+          description: Отметка об употреблении создана
+        '204':
+          description: Продукт уже отмечен употреблённым
+        '404':
+          description: Продукт не найден в инвентаре
+
+    delete:
+      tags:
+        - Products
+      summary: Отменить отметку об употреблении продукта
+      description: |
+        Сбрасывает consumed_at в null.
+        Если продукт уже не отмечен употреблённым,
+        операция также считается успешной.
+      responses:
+        '204':
+          description: Отметка об употреблении отсутствует
+        '404':
+          description: Продукт не найден в инвентаре
+
+  /products/inventory:
+    get:
+      tags:
+        - Products
+      summary: Получить список продуктов пользователя
+      responses:
+        '200':
+          description: Список продуктов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InventoryItem'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Авторизация с использованием JWT
+
+  schemas:
+    AuthCredentials:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: 'user@example.com'
+        password:
+          type: string
+          format: password
+          minLength: 6
+          example: 'mySecurePassword123'
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+          description: Токен для обновления авторизации
+
+    AuthTokensResponse:
+      type: object
+      required:
+        - access_token
+        - refresh_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+          description: JWT для запросов к защищённому API
+        refresh_token:
+          type: string
+          description: Токен для обновления авторизации
+        token_type:
+          type: string
+          enum:
+            - Bearer
+        expires_in:
+          type: integer
+          description: Срок действия Access Token в секундах
+          example: 900
+
+    ProductDataMatrixRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          example: '010460123456789021a1B2C%3D4E;5! 910001 92XyZ123...'
+
+    ProductBarcodeRequest:
+      type: object
+      required:
+        - code
+        - expiration_date
+      properties:
+        code:
+          type: string
+          example: '4601234567890'
+        expiration_date:
+          type: string
+          format: date
+          example: '2026-10-20'
+
+    ProductBarcodeCandidateRequest:
+      type: object
+      required:
+        - barcode
+        - name
+        - expiration_date
+      properties:
+        barcode:
+          type: string
+          example: '4601234567890'
+        name:
+          type: string
+          example: 'Молоко'
+        expiration_date:
+          type: string
+          format: date
+          example: '2026-10-20'
+
+    ProductWithoutCodeRequest:
+      type: object
+      required:
+        - name
+        - expiration_date
+      properties:
+        name:
+          type: string
+          example: 'Молоко'
+        expiration_date:
+          type: string
+          format: date
+          example: '2026-10-20'
+
+    ProductSuccessResponse:
+      type: object
+      required:
+        - status
+        - product
+      properties:
+        status:
+          type: string
+          enum: [ 'SUCCESS' ]
+        product:
+          $ref: '#/components/schemas/Product'
+
+    ProductNotFoundResponse:
+      type: object
+      required:
+        - status
+        - code
+      properties:
+        status:
+          type: string
+          enum: [ NOT_FOUND ]
+        code:
+          type: string
+
+    Product:
+      type: object
+      required:
+        - id
+        - name
+        - expiration_date
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 'acde070d-8c4c-4f0d-9d8a-162843c10333'
+        name:
+          type: string
+          example: 'Milk'
+        expiration_date:
+          type: string
+          format: date
+          example: '2026-10-20'
+
+    InventoryItem:
+      type: object
+      required:
+        - id
+        - name
+        - expiration_date
+        - consumed_at
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 'acde070d-8c4c-4f0d-9d8a-162843c10333'
+        name:
+          type: string
+          example: 'Milk'
+        expiration_date:
+          type: string
+          format: date
+          example: '2026-10-20'
+        consumed_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          example: '2026-10-20T14:30:00Z'
+          description: Время употребления или null
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-10-20T14:30:00Z'
+          description: Время добавления в инвентарь
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-10-20T14:30:00Z'
+          description: Время последнего изменения
