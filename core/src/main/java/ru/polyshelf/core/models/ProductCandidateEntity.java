@@ -12,6 +12,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.OffsetDateTime;
@@ -19,6 +20,7 @@ import java.util.UUID;
 
 @Getter
 @Setter
+@Accessors(chain = true)
 @Entity
 @Table(name = "product_candidate")
 public class ProductCandidateEntity {
@@ -50,11 +52,9 @@ public class ProductCandidateEntity {
     @Column(name = "status", nullable = false, length = 32)
     private Status status = Status.PENDING;
 
-    @NotNull
     @Column(name = "user_id")
     private UUID userId;
 
-    @NotNull
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;

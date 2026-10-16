@@ -12,6 +12,7 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -23,8 +24,9 @@ import java.util.UUID;
 
 @Getter
 @Setter
+@Accessors(chain = true)
 @Entity
-@Table(name = "user_inventory")
+@Table(name = "inventory_item")
 public class InventoryItemEntity {
 
     @Id
@@ -51,12 +53,10 @@ public class InventoryItemEntity {
     @Column(name = "consumed_at")
     private OffsetDateTime consumedAt;
 
-    @NotNull
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
-    @NotNull
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
