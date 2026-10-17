@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: polyshelf-auth
+  datasource:
+    url: jdbc:postgresql://localhost:5432/polyshelf_db
+    username: polyshelf_user
+    password: polyshelf_password
+  jpa:
+    hibernate:
+      ddl-auto: validate
+server:
+  port: 8082
