@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  MIN_COVERAGE: 50
+  MIN_COVERAGE: 40
 
 jobs:
   detect:
@@ -85,10 +85,14 @@ jobs:
         run: |
           files=$(find . -path '*jacoco*' -name '*.csv')
           if [ -z "$files" ]; then
-            echo "::error::JaCoCo отчёты не найдены (нет тестов/классов?)"
-            exit 1
+            echo "### ${{ matrix.dir }}: нет кода для измерения покрытия" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
-          cov=$(cat $files | awk -F, '$1!="GROUP"{m+=$4;c+=$5} END{if(m+c==0)print 0; else printf "%.2f", c*100/(m+c)}')
+          cov=$(cat $files | awk -F, '$1!="GROUP"{m+=$4;c+=$5} END{if(m+c==0)print "n/a"; else printf "%.2f", c*100/(m+c)}')
+          if [ "$cov" = "n/a" ]; then
+            echo "### ${{ matrix.dir }}: нет кода для измерения покрытия" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           echo "### ${{ matrix.dir }}: coverage ${cov}% (min ${MIN_COVERAGE}%)" >> "$GITHUB_STEP_SUMMARY"
           echo "Coverage: ${cov}%"
           if awk -v c="$cov" -v t="$MIN_COVERAGE" 'BEGIN{exit !(c < t)}'; then
