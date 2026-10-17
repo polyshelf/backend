@@ -12,20 +12,7 @@ env:
   MIN_COVERAGE: 50
 
 jobs:
-  branch-name:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check branch name
-        env:
-          BRANCH: ${{ github.head_ref }}
-        run: |
-          if [[ ! "$BRANCH" =~ ^(feat|feature|dev|fix|bug|refactoring)/ ]]; then
-            echo "::error::Имя ветки '$BRANCH' должно начинаться с feat/ feature/ dev/ fix/ bug/ refactoring/"
-            exit 1
-          fi
-
   detect:
-    needs: branch-name
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.d.outputs.matrix }}
@@ -58,23 +45,14 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: |
-            ~/.m2/repository
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: deps-${{ matrix.dir }}-${{ hashFiles(format('{0}/**/pom.xml', matrix.dir), format('{0}/**/*.gradle*', matrix.dir), format('{0}/**/gradle-wrapper.properties', matrix.dir)) }}
-          restore-keys: deps-${{ matrix.dir }}-
+          key: gradle-${{ hashFiles('**/*.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-
       - name: Build (без тестов)
-        working-directory: ${{ matrix.dir }}
         run: |
-          if [ -f pom.xml ]; then
-            chmod +x mvnw 2>/dev/null || true
-            MVN=$([ -x ./mvnw ] && echo ./mvnw || echo mvn)
-            $MVN -B -DskipTests clean package
-          else
-            chmod +x gradlew 2>/dev/null || true
-            GR=$([ -x ./gradlew ] && echo ./gradlew || echo gradle)
-            $GR assemble --no-daemon
-          fi
+          chmod +x gradlew
+          ./gradlew :${{ matrix.dir }}:assemble --no-daemon
 
   test:
     needs: [detect, build]
@@ -94,36 +72,14 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: |
-            ~/.m2/repository
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: deps-${{ matrix.dir }}-${{ hashFiles(format('{0}/**/pom.xml', matrix.dir), format('{0}/**/*.gradle*', matrix.dir), format('{0}/**/gradle-wrapper.properties', matrix.dir)) }}
-          restore-keys: deps-${{ matrix.dir }}-
+          key: gradle-${{ hashFiles('**/*.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-
       - name: Test with JaCoCo
-        working-directory: ${{ matrix.dir }}
         run: |
-          if [ -f pom.xml ]; then
-            chmod +x mvnw 2>/dev/null || true
-            MVN=$([ -x ./mvnw ] && echo ./mvnw || echo mvn)
-            J=org.jacoco:jacoco-maven-plugin:0.8.14
-            $MVN -B $J:prepare-agent test $J:report
-          else
-            chmod +x gradlew 2>/dev/null || true
-            GR=$([ -x ./gradlew ] && echo ./gradlew || echo gradle)
-            cat > "$RUNNER_TEMP/jacoco.init.gradle" <<'GRADLE'
-          allprojects {
-            afterEvaluate { p ->
-              if (p.plugins.hasPlugin('java')) {
-                p.apply plugin: 'jacoco'
-                p.jacoco { toolVersion = '0.8.14' }
-                p.tasks.withType(Test).configureEach { finalizedBy p.tasks.named('jacocoTestReport') }
-                p.tasks.named('jacocoTestReport') { reports { csv.required = true } }
-              }
-            }
-          }
-          GRADLE
-            $GR test jacocoTestReport --no-daemon --init-script "$RUNNER_TEMP/jacoco.init.gradle"
-          fi
+          chmod +x gradlew
+          ./gradlew :${{ matrix.dir }}:test :${{ matrix.dir }}:jacocoTestReport --no-daemon --init-script .github/jacoco.init.gradle
       - name: Check coverage
         working-directory: ${{ matrix.dir }}
         run: |

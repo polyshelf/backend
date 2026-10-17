@@ -1,0 +1,10 @@
+allprojects {
+  afterEvaluate { p ->
+    if (p.plugins.hasPlugin('java')) {
+      p.apply plugin: 'jacoco'
+      p.jacoco { toolVersion = '0.8.14' }
+      p.tasks.withType(Test).configureEach { finalizedBy p.tasks.named('jacocoTestReport') }
+      p.tasks.named('jacocoTestReport') { reports { csv.required = true } }
+    }
+  }
+}
