@@ -99,7 +99,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProductSuccessResponse'
+                $ref: '#/components/schemas/Product'
 
   /products/from-barcode:
     post:
@@ -118,7 +118,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProductSuccessResponse'
+                $ref: '#/components/schemas/Product'
         '404':
           description: Продукт не найден в базе. Нужно добавить его через /from-barcode-candidate
           content:
@@ -143,7 +143,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProductSuccessResponse'
+                $ref: '#/components/schemas/Product'
 
   /products:
     post:
@@ -162,7 +162,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProductSuccessResponse'
+                $ref: '#/components/schemas/Product'
 
   /products/{product_uuid}:
     parameters:
@@ -350,18 +350,6 @@ components:
           type: string
           format: date
           example: '2026-10-20'
-
-    ProductSuccessResponse:
-      type: object
-      required:
-        - status
-        - product
-      properties:
-        status:
-          type: string
-          enum: [ 'SUCCESS' ]
-        product:
-          $ref: '#/components/schemas/Product'
 
     ProductNotFoundResponse:
       type: object

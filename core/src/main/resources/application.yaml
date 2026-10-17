@@ -8,5 +8,12 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          public-key-location: ${JWT_PUBLIC_KEY_LOCATION:classpath:keys/public_local.pem}
+          audiences:
+            - polyshelf-api
 server:
   port: 8081
