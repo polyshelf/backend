@@ -15,7 +15,10 @@ public class TestcontainersConfiguration {
         return new PostgreSQLContainer("postgres:18")
                 .withCopyFileToContainer(
                         MountableFile.forHostPath("../flyway/migration/V1__init.sql"),
-                        "/docker-entrypoint-initdb.d/V1__init.sql");
+                        "/docker-entrypoint-initdb.d/V1__init.sql")
+                .withCopyFileToContainer(
+                        MountableFile.forHostPath("../flyway/migration/V2__refresh_token.sql"),
+                        "/docker-entrypoint-initdb.d/V2__refresh_token.sql");
     }
 
 }
