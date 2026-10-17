@@ -5,12 +5,23 @@ spring:
     gateway:
       server:
         webmvc:
-          routes:  # todo: add service discovery
-            - id: core
-              uri: ${POLYSHELF_CORE_URL:http://localhost:8081}
-              predicates:
-                - Path=/api/core/**
+          routes:
             - id: auth
               uri: ${POLYSHELF_AUTH_URL:http://localhost:8082}
+              order: 0
               predicates:
-                - Path=/api/auth/**
+                - Path=/auth/**
+            - id: core
+              uri: ${POLYSHELF_CORE_URL:http://localhost:8081}
+              order: 1
+              predicates:
+                - Path=/**
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
