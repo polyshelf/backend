@@ -4,14 +4,7 @@
 
 1. Создаем юзера в бд, запоминаем его id
 
-2. Из корня проекта:
-    ```shell
-    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out private.pem
-
-    openssl pkey -in private.pem -pubout -out core/src/main/resources/keys/public.pem
-    ```
-
-3. Идем на [jwt.io](https://www.jwt.io/), выбираем JWT Encoder, задаем следующие параметры:
+2. Идем на [jwt.io](https://www.jwt.io/), выбираем JWT Encoder, задаем следующие параметры:
 
     Header:
     ```json
@@ -33,9 +26,9 @@
     }
     ```
 
-    Sign JWT: вставляем целиком содержимое файла private.pem
+    Sign JWT: вставляем целиком содержимое файла private.pem (лежит в телеге)
 
-4. Полученный токен используем в запросах, добавив перед ним `Bearer `
+3. Полученный токен используем в запросах, добавив перед ним `Bearer `
 
     Пример:
     ```
