@@ -322,11 +322,11 @@ components:
     ProductBarcodeCandidateRequest:
       type: object
       required:
-        - barcode
+        - code
         - name
         - expiration_date
       properties:
-        barcode:
+        code:
           type: string
           example: '4601234567890'
         name:

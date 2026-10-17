@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import ru.polyshelf.core.dto.ProductResponse;
 import ru.polyshelf.core.dto.ProductWithBarcodeRequest;
+import ru.polyshelf.core.dto.ProductWithBarcodeCandidateRequest;
 import ru.polyshelf.core.dto.ProductWithoutCodeRequest;
 import ru.polyshelf.core.mappers.InventoryMapper;
 import ru.polyshelf.core.models.InventoryItemEntity;
@@ -35,6 +36,9 @@ class InventoryServiceTest {
 
     @Mock
     private ProductService productService;
+
+    @Mock
+    private ProductCandidateService productCandidateService;
 
     @InjectMocks
     private InventoryService inventoryService;
@@ -264,6 +268,100 @@ class InventoryServiceTest {
         assertEquals("Database unavailable", exception.getMessage());
 
         verify(productService).getProductByCode(barcode);
+        verify(inventoryRepository).save(any(InventoryItemEntity.class));
+        verifyNoInteractions(inventoryMapper);
+    }
+
+    @Test
+    void addWithCodeCandidate_shouldSaveCandidateAndCustomInventoryItem() {
+        String barcode = "4601234567890";
+        LocalDate expirationDate = LocalDate.of(2026, Month.OCTOBER, 20);
+        ProductWithBarcodeCandidateRequest request = new ProductWithBarcodeCandidateRequest(
+                barcode, "  Молоко  ", expirationDate
+        );
+        ProductResponse expectedResponse = new ProductResponse(ITEM_ID, "Молоко", expirationDate);
+
+        when(inventoryRepository.save(any(InventoryItemEntity.class)))
+                .thenAnswer(invocation -> {
+                    InventoryItemEntity item = invocation.getArgument(0);
+                    return item.setId(ITEM_ID);
+                });
+        when(inventoryMapper.toProductResponse(any(InventoryItemEntity.class)))
+                .thenReturn(expectedResponse);
+
+        ProductResponse result = inventoryService.addWithCodeCandidate(USER_ID, request);
+
+        ArgumentCaptor<InventoryItemEntity> captor =
+                ArgumentCaptor.forClass(InventoryItemEntity.class);
+        verify(productService).checkNotExistsInCatalog(barcode);
+        verify(productCandidateService).addByUser(USER_ID, barcode, "  Молоко  ");
+        verify(inventoryRepository).save(captor.capture());
+        InventoryItemEntity item = captor.getValue();
+        assertAll(
+                () -> assertEquals(USER_ID, item.getUserId()),
+                () -> assertEquals("Молоко", item.getCustomName()),
+                () -> assertNull(item.getProduct()),
+                () -> assertEquals(expirationDate, item.getExpirationDate()),
+                () -> assertEquals(ITEM_ID, item.getId()),
+                () -> assertEquals(expectedResponse, result)
+        );
+        verify(inventoryMapper).toProductResponse(item);
+    }
+
+    @Test
+    void addWithCodeCandidate_shouldNotSaveWhenProductAlreadyExists() {
+        ProductWithBarcodeCandidateRequest request = new ProductWithBarcodeCandidateRequest(
+                "4601234567890", "Молоко", LocalDate.of(2026, Month.OCTOBER, 20)
+        );
+        doThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Product already exists in catalog"))
+                .when(productService).checkNotExistsInCatalog(request.code());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> inventoryService.addWithCodeCandidate(USER_ID, request)
+        );
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(productService).checkNotExistsInCatalog(request.code());
+        verifyNoInteractions(productCandidateService, inventoryRepository, inventoryMapper);
+    }
+
+    @Test
+    void addWithCodeCandidate_shouldNotSaveInventoryWhenCandidateSaveFails() {
+        ProductWithBarcodeCandidateRequest request = new ProductWithBarcodeCandidateRequest(
+                "4601234567890", "Молоко", LocalDate.of(2026, Month.OCTOBER, 20)
+        );
+        doThrow(new RuntimeException("Candidate save failed"))
+                .when(productCandidateService)
+                .addByUser(USER_ID, request.code(), request.name());
+
+        RuntimeException exception = assertThrows(
+                RuntimeException.class,
+                () -> inventoryService.addWithCodeCandidate(USER_ID, request)
+        );
+
+        assertEquals("Candidate save failed", exception.getMessage());
+        verify(productService).checkNotExistsInCatalog(request.code());
+        verify(productCandidateService).addByUser(USER_ID, request.code(), request.name());
+        verifyNoInteractions(inventoryRepository, inventoryMapper);
+    }
+
+    @Test
+    void addWithCodeCandidate_shouldPropagateInventorySaveException() {
+        ProductWithBarcodeCandidateRequest request = new ProductWithBarcodeCandidateRequest(
+                "4601234567890", "Молоко", LocalDate.of(2026, Month.OCTOBER, 20)
+        );
+        when(inventoryRepository.save(any(InventoryItemEntity.class)))
+                .thenThrow(new RuntimeException("Inventory save failed"));
+
+        RuntimeException exception = assertThrows(
+                RuntimeException.class,
+                () -> inventoryService.addWithCodeCandidate(USER_ID, request)
+        );
+
+        assertEquals("Inventory save failed", exception.getMessage());
+        verify(productService).checkNotExistsInCatalog(request.code());
+        verify(productCandidateService).addByUser(USER_ID, request.code(), request.name());
         verify(inventoryRepository).save(any(InventoryItemEntity.class));
         verifyNoInteractions(inventoryMapper);
     }

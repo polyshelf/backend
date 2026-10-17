@@ -13,6 +13,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.web.server.ResponseStatusException;
 import ru.polyshelf.core.dto.ProductResponse;
 import ru.polyshelf.core.dto.ProductWithBarcodeRequest;
+import ru.polyshelf.core.dto.ProductWithBarcodeCandidateRequest;
 import ru.polyshelf.core.dto.ProductWithoutCodeRequest;
 import ru.polyshelf.core.services.InventoryService;
 import ru.polyshelf.core.security.UserPrincipal;
@@ -327,6 +328,122 @@ class ProductControllerTest {
                             """))
                 .andExpect(status().isBadRequest());
 
+        verifyNoInteractions(inventoryService);
+    }
+
+    @Test
+    void addWithBarcodeCandidate_shouldReturnCreatedProduct() throws Exception {
+        LocalDate expirationDate = LocalDate.of(2026, Month.OCTOBER, 20);
+        ProductWithBarcodeCandidateRequest request = new ProductWithBarcodeCandidateRequest(
+                "4601234567890", "Молоко", expirationDate
+        );
+        ProductResponse response = new ProductResponse(PRODUCT_ID, "Молоко", expirationDate);
+
+        when(inventoryService.addWithCodeCandidate(USER_ID, request)).thenReturn(response);
+
+        mockMvc.perform(post("/products/from-barcode-candidate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "code": "4601234567890",
+                                  "name": "Молоко",
+                                  "expiration_date": "2026-10-20"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(PRODUCT_ID.toString()))
+                .andExpect(jsonPath("$.name").value("Молоко"))
+                .andExpect(jsonPath("$.expiration_date").value("2026-10-20"));
+
+        verify(inventoryService).addWithCodeCandidate(USER_ID, request);
+    }
+
+    @Test
+    void addWithBarcodeCandidate_shouldReturn409WhenProductAlreadyExists() throws Exception {
+        ProductWithBarcodeCandidateRequest request = new ProductWithBarcodeCandidateRequest(
+                "4601234567890", "Молоко", LocalDate.of(2026, Month.OCTOBER, 20)
+        );
+        when(inventoryService.addWithCodeCandidate(USER_ID, request))
+                .thenThrow(new ResponseStatusException(
+                        HttpStatus.CONFLICT, "Product already exists in catalog"
+                ));
+
+        mockMvc.perform(post("/products/from-barcode-candidate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "code": "4601234567890",
+                                  "name": "Молоко",
+                                  "expiration_date": "2026-10-20"
+                                }
+                                """))
+                .andExpect(status().isConflict());
+
+        verify(inventoryService).addWithCodeCandidate(USER_ID, request);
+    }
+
+    @Test
+    void addWithBarcodeCandidate_shouldRejectBlankBarcode() throws Exception {
+        assertCandidateBadRequest("""
+                {"code":"  ","name":"Молоко","expiration_date":"2026-10-20"}
+                """);
+    }
+
+    @Test
+    void addWithBarcodeCandidate_shouldRejectInvalidBarcodeLength() throws Exception {
+        assertCandidateBadRequest("""
+                {"code":"12345678","name":"Молоко","expiration_date":"2026-10-20"}
+                """);
+    }
+
+    @Test
+    void addWithBarcodeCandidate_shouldRejectNonNumericBarcode() throws Exception {
+        assertCandidateBadRequest("""
+                {"code":"46012345678AB","name":"Молоко","expiration_date":"2026-10-20"}
+                """);
+    }
+
+    @Test
+    void addWithBarcodeCandidate_shouldRejectMissingName() throws Exception {
+        assertCandidateBadRequest("""
+                {"code":"4601234567890","expiration_date":"2026-10-20"}
+                """);
+    }
+
+    @Test
+    void addWithBarcodeCandidate_shouldRejectBlankName() throws Exception {
+        assertCandidateBadRequest("""
+                {"code":"4601234567890","name":"  ","expiration_date":"2026-10-20"}
+                """);
+    }
+
+    @Test
+    void addWithBarcodeCandidate_shouldRejectTooLongName() throws Exception {
+        String json = """
+                {"code":"4601234567890","name":"%s","expiration_date":"2026-10-20"}
+                """.formatted("A".repeat(256));
+        assertCandidateBadRequest(json);
+    }
+
+    @Test
+    void addWithBarcodeCandidate_shouldRejectMissingExpirationDate() throws Exception {
+        assertCandidateBadRequest("""
+                {"code":"4601234567890","name":"Молоко"}
+                """);
+    }
+
+    @Test
+    void addWithBarcodeCandidate_shouldRejectInvalidDateFormat() throws Exception {
+        assertCandidateBadRequest("""
+                {"code":"4601234567890","name":"Молоко","expiration_date":"20-10-2026"}
+                """);
+    }
+
+    private void assertCandidateBadRequest(String json) throws Exception {
+        mockMvc.perform(post("/products/from-barcode-candidate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isBadRequest());
         verifyNoInteractions(inventoryService);
     }
 

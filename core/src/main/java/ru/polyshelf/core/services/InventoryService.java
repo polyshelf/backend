@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.polyshelf.core.dto.ProductResponse;
+import ru.polyshelf.core.dto.ProductWithBarcodeCandidateRequest;
 import ru.polyshelf.core.dto.ProductWithBarcodeRequest;
 import ru.polyshelf.core.dto.ProductWithoutCodeRequest;
 import ru.polyshelf.core.mappers.InventoryMapper;
@@ -11,6 +12,7 @@ import ru.polyshelf.core.models.InventoryItemEntity;
 import ru.polyshelf.core.models.ProductEntity;
 import ru.polyshelf.core.repositories.InventoryRepository;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Service
@@ -21,17 +23,11 @@ public class InventoryService {
     private final InventoryRepository inventoryRepository;
     private final InventoryMapper inventoryMapper;
     private final ProductService productService;
+    private final ProductCandidateService productCandidateService;
 
     @Transactional
     public ProductResponse addWithoutCode(UUID userId, ProductWithoutCodeRequest request) {
-        InventoryItemEntity item = new InventoryItemEntity()
-                .setUserId(userId)
-                .setCustomName(request.name().strip())
-                .setExpirationDate(request.expirationDate());
-
-        InventoryItemEntity saved = inventoryRepository.save(item);
-
-        return inventoryMapper.toProductResponse(saved);
+        return saveCustom(userId, request.name(), request.expirationDate());
     }
 
     @Transactional
@@ -42,6 +38,26 @@ public class InventoryService {
                 .setUserId(userId)
                 .setProduct(product)
                 .setExpirationDate(request.expirationDate());
+
+        InventoryItemEntity saved = inventoryRepository.save(item);
+
+        return inventoryMapper.toProductResponse(saved);
+    }
+
+    @Transactional
+    public ProductResponse addWithCodeCandidate(UUID userId, ProductWithBarcodeCandidateRequest request) {
+        productService.checkNotExistsInCatalog(request.code());
+
+        productCandidateService.addByUser(userId, request.code(), request.name());
+
+        return saveCustom(userId, request.name(), request.expirationDate());
+    }
+
+    private ProductResponse saveCustom(UUID userId, String name, LocalDate expirationDate) {
+        InventoryItemEntity item = new InventoryItemEntity()
+                .setUserId(userId)
+                .setCustomName(name.strip())
+                .setExpirationDate(expirationDate);
 
         InventoryItemEntity saved = inventoryRepository.save(item);
 
