@@ -6,20 +6,26 @@ HEAD_REF="${2:-HEAD}"
 OP="${3:-..}"
 OUT="${GITHUB_OUTPUT:-/dev/stdout}"
 
+all_modules() {
+  git ls-tree -d --name-only "$HEAD_REF" | while read -r d; do
+    git cat-file -e "$HEAD_REF:$d/build.gradle.kts" 2>/dev/null && echo "$d"
+  done || true
+}
+
 if [[ -z "$BASE" || "$BASE" =~ ^0+$ ]] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-  changed=$(git ls-tree -d --name-only "$HEAD_REF")
+  dirs=$(all_modules)
 else
-  changed=$(git diff --name-only "${BASE}${OP}${HEAD_REF}" | grep '/' | cut -d/ -f1 | sort -u || true)
+  files=$(git diff --name-only "${BASE}${OP}${HEAD_REF}")
+  if grep -qE '^(gradle/|settings\.gradle\.kts$|build\.gradle\.kts$|gradlew(\.bat)?$|flyway/|\.github/)' <<<"$files"; then
+    dirs=$(all_modules)
+  else
+    dirs=$(grep '/' <<<"$files" | cut -d/ -f1 | sort -u | while read -r d; do
+      git cat-file -e "$HEAD_REF:$d/build.gradle.kts" 2>/dev/null && echo "$d"
+    done || true)
+  fi
 fi
 
-dirs=""
-for d in $changed; do
-  if [ -f "$d/pom.xml" ] || [ -f "$d/build.gradle" ] || [ -f "$d/build.gradle.kts" ]; then
-    dirs+="$d"$'\n'
-  fi
-done
-
-matrix=$(printf '%s' "$dirs" | jq -R -s -c 'split("\n") | map(select(length>0))')
+matrix=$(printf '%s\n' "$dirs" | jq -R -s -c 'split("\n") | map(select(length>0))')
 echo "matrix=$matrix" >> "$OUT"
 if [ "$matrix" = "[]" ]; then echo "has=false" >> "$OUT"; else echo "has=true" >> "$OUT"; fi
 echo "Changed services: $matrix" >&2

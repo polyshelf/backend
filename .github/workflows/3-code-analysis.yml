@@ -60,17 +60,9 @@ jobs:
           languages: java-kotlin
           build-mode: manual
       - name: Build (без тестов)
-        working-directory: ${{ matrix.dir }}
         run: |
-          if [ -f pom.xml ]; then
-            chmod +x mvnw 2>/dev/null || true
-            MVN=$([ -x ./mvnw ] && echo ./mvnw || echo mvn)
-            $MVN -B -DskipTests package
-          else
-            chmod +x gradlew 2>/dev/null || true
-            GR=$([ -x ./gradlew ] && echo ./gradlew || echo gradle)
-            $GR assemble --no-daemon
-          fi
+          chmod +x gradlew
+          ./gradlew :${{ matrix.dir }}:assemble --no-daemon
       - uses: github/codeql-action/analyze@v3
         with:
           category: /service:${{ matrix.dir }}

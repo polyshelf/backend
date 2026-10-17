@@ -1,0 +1,106 @@
+name: polyshelf
+
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-polyshelf_db}
+      POSTGRES_USER: ${POSTGRES_USER:-polyshelf_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [backend]
+
+  migrations:
+    image: flyway/flyway:11
+    command: migrate
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-polyshelf_db}
+      FLYWAY_USER: ${POSTGRES_USER:-polyshelf_user}
+      FLYWAY_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+    volumes:
+      - ./flyway/migration:/flyway/sql:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks: [backend]
+
+  core:
+    build:
+      context: .
+      args:
+        MODULE: core
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-polyshelf_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-polyshelf_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8081'"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 40s
+    networks: [backend]
+
+  auth:
+    build:
+      context: .
+      args:
+        MODULE: auth
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-polyshelf_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-polyshelf_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8082'"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 40s
+    networks: [backend]
+
+  gateway:
+    build:
+      context: .
+      args:
+        MODULE: gateway
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    environment:
+      POLYSHELF_CORE_URL: http://core:8081
+      POLYSHELF_AUTH_URL: http://auth:8082
+    depends_on:
+      core:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8080'"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 40s
+    networks: [backend]
+
+networks:
+  backend:
+
+volumes:
+  postgres_data:

@@ -10,6 +10,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U polyshelf_user -d polyshelf_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   flyway:
     image: flyway/flyway:11
@@ -24,6 +29,7 @@ services:
     volumes:
       - ./flyway/migration:/flyway/sql:ro,Z
     command: migrate
+    restart: "no"
 
 volumes:
   postgres_data:

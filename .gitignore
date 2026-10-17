@@ -56,3 +56,13 @@ out/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+.env
+.apt_generated
+.classpath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+
