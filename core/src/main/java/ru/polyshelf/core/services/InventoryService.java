@@ -1,8 +1,10 @@
 package ru.polyshelf.core.services;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import ru.polyshelf.core.dto.ProductResponse;
 import ru.polyshelf.core.dto.ProductWithBarcodeCandidateRequest;
 import ru.polyshelf.core.dto.ProductWithBarcodeRequest;
@@ -13,6 +15,8 @@ import ru.polyshelf.core.models.ProductEntity;
 import ru.polyshelf.core.repositories.InventoryRepository;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 @Service
@@ -53,6 +57,15 @@ public class InventoryService {
         return saveCustom(userId, request.name(), request.expirationDate());
     }
 
+    @Transactional
+    public void delete(UUID userId, UUID itemId) {
+        InventoryItemEntity item = inventoryRepository
+                .findByIdAndUserIdAndDeletedAtIsNull(itemId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+        item.setDeletedAt(OffsetDateTime.now(ZoneOffset.UTC));
+    }
+
     private ProductResponse saveCustom(UUID userId, String name, LocalDate expirationDate) {
         InventoryItemEntity item = new InventoryItemEntity()
                 .setUserId(userId)
@@ -63,5 +76,4 @@ public class InventoryService {
 
         return inventoryMapper.toProductResponse(saved);
     }
-
 }

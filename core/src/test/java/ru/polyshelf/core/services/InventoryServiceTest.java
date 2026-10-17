@@ -19,6 +19,8 @@ import ru.polyshelf.core.repositories.InventoryRepository;
 
 import java.time.LocalDate;
 import java.time.Month;
+import java.time.OffsetDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -364,6 +366,78 @@ class InventoryServiceTest {
         verify(productCandidateService).addByUser(USER_ID, request.code(), request.name());
         verify(inventoryRepository).save(any(InventoryItemEntity.class));
         verifyNoInteractions(inventoryMapper);
+    }
+
+    @Test
+    void delete_shouldSetDeletedAtForOwnedItem() {
+        InventoryItemEntity item = new InventoryItemEntity()
+                .setId(ITEM_ID)
+                .setUserId(USER_ID);
+
+        when(inventoryRepository.findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, USER_ID))
+                .thenReturn(Optional.of(item));
+
+        OffsetDateTime before = OffsetDateTime.now();
+        inventoryService.delete(USER_ID, ITEM_ID);
+        OffsetDateTime after = OffsetDateTime.now();
+
+        assertNotNull(item.getDeletedAt());
+        assertFalse(item.getDeletedAt().isBefore(before));
+        assertFalse(item.getDeletedAt().isAfter(after));
+
+        verify(inventoryRepository).findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, USER_ID);
+        verify(inventoryRepository, never()).save(any(InventoryItemEntity.class));
+        verifyNoMoreInteractions(inventoryRepository);
+        verifyNoInteractions(inventoryMapper, productService, productCandidateService);
+    }
+
+    @Test
+    void delete_shouldReturn404WhenItemDoesNotExist() {
+        when(inventoryRepository.findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, USER_ID))
+                .thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> inventoryService.delete(USER_ID, ITEM_ID)
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verify(inventoryRepository).findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, USER_ID);
+        verifyNoMoreInteractions(inventoryRepository);
+        verifyNoInteractions(inventoryMapper, productService, productCandidateService);
+    }
+
+    @Test
+    void delete_shouldReturn404ForAnotherUsersItem() {
+        UUID otherUserId = UUID.randomUUID();
+
+        when(inventoryRepository.findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, otherUserId))
+                .thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> inventoryService.delete(otherUserId, ITEM_ID)
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verify(inventoryRepository).findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, otherUserId);
+        verify(inventoryRepository, never()).save(any(InventoryItemEntity.class));
+        verifyNoMoreInteractions(inventoryRepository);
+    }
+
+    @Test
+    void delete_shouldReturn404ForAlreadyDeletedItem() {
+        when(inventoryRepository.findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, USER_ID))
+                .thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> inventoryService.delete(USER_ID, ITEM_ID)
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verify(inventoryRepository).findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, USER_ID);
+        verifyNoMoreInteractions(inventoryRepository);
     }
 
 }

@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,6 +18,8 @@ import ru.polyshelf.core.dto.ProductWithBarcodeRequest;
 import ru.polyshelf.core.dto.ProductWithoutCodeRequest;
 import ru.polyshelf.core.security.UserPrincipal;
 import ru.polyshelf.core.services.InventoryService;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/products")
@@ -55,6 +59,16 @@ public class ProductController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(inventoryService.addWithoutCode(user.userId(), request));
+    }
+
+    @SecurityRequirement(name = "bearerAuth")
+    @DeleteMapping("/{itemId}")
+    public ResponseEntity<Void> deleteFromInventory(
+            @AuthenticationPrincipal UserPrincipal user,
+            @PathVariable UUID itemId
+    ) {
+        inventoryService.delete(user.userId(), itemId);
+        return ResponseEntity.noContent().build();
     }
 
 }

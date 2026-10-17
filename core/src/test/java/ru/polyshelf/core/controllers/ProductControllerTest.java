@@ -31,6 +31,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ProductController.class)
@@ -444,6 +445,36 @@ class ProductControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest());
+        verifyNoInteractions(inventoryService);
+    }
+
+
+    @Test
+    void deleteFromInventory_shouldReturn204AndCallService() throws Exception {
+        mockMvc.perform(delete("/products/{productId}", PRODUCT_ID))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        verify(inventoryService).delete(USER_ID, PRODUCT_ID);
+        verifyNoMoreInteractions(inventoryService);
+    }
+
+    @Test
+    void deleteFromInventory_shouldReturn404WhenItemNotFoundOrNotOwned() throws Exception {
+        doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND))
+                .when(inventoryService).delete(USER_ID, PRODUCT_ID);
+
+        mockMvc.perform(delete("/products/{productId}", PRODUCT_ID))
+                .andExpect(status().isNotFound());
+
+        verify(inventoryService).delete(USER_ID, PRODUCT_ID);
+    }
+
+    @Test
+    void deleteFromInventory_shouldRejectInvalidUuid() throws Exception {
+        mockMvc.perform(delete("/products/{productId}", "invalid-uuid"))
+                .andExpect(status().isBadRequest());
+
         verifyNoInteractions(inventoryService);
     }
 
