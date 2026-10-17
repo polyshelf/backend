@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -11,6 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.web.server.ResponseStatusException;
+import ru.polyshelf.core.dto.InventoryItemResponse;
 import ru.polyshelf.core.dto.ProductResponse;
 import ru.polyshelf.core.dto.ProductWithBarcodeRequest;
 import ru.polyshelf.core.dto.ProductWithBarcodeCandidateRequest;
@@ -24,12 +26,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import java.util.List;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.Month;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -535,6 +539,70 @@ class ProductControllerTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(inventoryService);
+    }
+
+    @Test
+    void getInventory_shouldReturnItemsWithAllFields() throws Exception {
+        UUID secondId = UUID.fromString("550e8400-e29b-41d4-a716-446655440002");
+        OffsetDateTime createdAt = OffsetDateTime.parse("2026-10-17T10:00:00Z");
+        OffsetDateTime updatedAt = OffsetDateTime.parse("2026-10-17T12:00:00Z");
+        OffsetDateTime consumedAt = OffsetDateTime.parse("2026-10-17T11:00:00Z");
+        InventoryItemResponse first = new InventoryItemResponse(
+                PRODUCT_ID, "Молоко", LocalDate.of(2026, Month.OCTOBER, 20),
+                null, createdAt, updatedAt
+        );
+        InventoryItemResponse second = new InventoryItemResponse(
+                secondId, "Хлеб", LocalDate.of(2026, Month.OCTOBER, 25),
+                consumedAt, createdAt, updatedAt
+        );
+        Sort sort = Sort.by(Sort.Order.asc("expirationDate"));
+
+        when(inventoryService.getInventory(USER_ID, sort))
+                .thenReturn(List.of(first, second));
+
+        mockMvc.perform(get("/products/inventory")
+                        .param("sort", "expirationDate,asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").value(PRODUCT_ID.toString()))
+                .andExpect(jsonPath("$[0].name").value("Молоко"))
+                .andExpect(jsonPath("$[0].expiration_date").value("2026-10-20"))
+                .andExpect(jsonPath("$[0].consumed_at").doesNotExist())
+                .andExpect(jsonPath("$[0].created_at").value("2026-10-17T10:00:00Z"))
+                .andExpect(jsonPath("$[0].updated_at").value("2026-10-17T12:00:00Z"))
+                .andExpect(jsonPath("$[1].id").value(secondId.toString()))
+                .andExpect(jsonPath("$[1].consumed_at").value("2026-10-17T11:00:00Z"));
+
+        verify(inventoryService).getInventory(USER_ID, sort);
+        verifyNoMoreInteractions(inventoryService);
+    }
+
+    @Test
+    void getInventory_shouldPassMultipleSortFields() throws Exception {
+        Sort sort = Sort.by(
+                Sort.Order.asc("expirationDate"),
+                Sort.Order.desc("createdAt")
+        );
+        when(inventoryService.getInventory(USER_ID, sort)).thenReturn(List.of());
+
+        mockMvc.perform(get("/products/inventory")
+                        .param("sort", "expirationDate,asc", "createdAt,desc"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
+
+        verify(inventoryService).getInventory(USER_ID, sort);
+    }
+
+    @Test
+    void getInventory_shouldReturnEmptyListWithoutSort() throws Exception {
+        when(inventoryService.getInventory(USER_ID, Sort.unsorted()))
+                .thenReturn(List.of());
+
+        mockMvc.perform(get("/products/inventory"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
+
+        verify(inventoryService).getInventory(USER_ID, Sort.unsorted());
     }
 
 }

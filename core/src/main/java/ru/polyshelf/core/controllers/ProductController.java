@@ -3,16 +3,19 @@ package ru.polyshelf.core.controllers;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import ru.polyshelf.core.dto.InventoryItemResponse;
 import ru.polyshelf.core.dto.ProductResponse;
 import ru.polyshelf.core.dto.ProductWithBarcodeCandidateRequest;
 import ru.polyshelf.core.dto.ProductWithBarcodeRequest;
@@ -20,6 +23,7 @@ import ru.polyshelf.core.dto.ProductWithoutCodeRequest;
 import ru.polyshelf.core.security.UserPrincipal;
 import ru.polyshelf.core.services.InventoryService;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -28,6 +32,15 @@ import java.util.UUID;
 public class ProductController {
 
     private final InventoryService inventoryService;
+
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/inventory")
+    public ResponseEntity<List<InventoryItemResponse>> getInventory(
+            @AuthenticationPrincipal UserPrincipal user,
+            Sort sort
+    ) {
+        return ResponseEntity.ok(inventoryService.getInventory(user.userId(), sort));
+    }
 
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/from-barcode")

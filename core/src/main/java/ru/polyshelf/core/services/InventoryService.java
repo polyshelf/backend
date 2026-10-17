@@ -1,10 +1,12 @@
 package ru.polyshelf.core.services;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import ru.polyshelf.core.dto.InventoryItemResponse;
 import ru.polyshelf.core.dto.ProductResponse;
 import ru.polyshelf.core.dto.ProductWithBarcodeCandidateRequest;
 import ru.polyshelf.core.dto.ProductWithBarcodeRequest;
@@ -17,6 +19,8 @@ import ru.polyshelf.core.repositories.InventoryRepository;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -24,10 +28,30 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class InventoryService {
 
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
+            "expirationDate",
+            "createdAt",
+            "updatedAt",
+            "consumedAt"
+    );
+
     private final InventoryRepository inventoryRepository;
     private final InventoryMapper inventoryMapper;
     private final ProductService productService;
     private final ProductCandidateService productCandidateService;
+
+    public List<InventoryItemResponse> getInventory(UUID userId, Sort sort) {
+        for (Sort.Order order : sort) {
+            if (!ALLOWED_SORT_FIELDS.contains(order.getProperty())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported sort field");
+            }
+        }
+
+        return inventoryRepository.findAllByUserIdAndDeletedAtIsNull(userId, sort)
+                .stream()
+                .map(inventoryMapper::toInventoryItemResponse)
+                .toList();
+    }
 
     @Transactional
     public ProductResponse addWithoutCode(UUID userId, ProductWithoutCodeRequest request) {
@@ -91,4 +115,5 @@ public class InventoryService {
 
         return inventoryMapper.toProductResponse(saved);
     }
+
 }

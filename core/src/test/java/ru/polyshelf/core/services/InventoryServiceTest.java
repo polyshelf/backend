@@ -6,8 +6,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import ru.polyshelf.core.dto.InventoryItemResponse;
 import ru.polyshelf.core.dto.ProductResponse;
 import ru.polyshelf.core.dto.ProductWithBarcodeRequest;
 import ru.polyshelf.core.dto.ProductWithBarcodeCandidateRequest;
@@ -18,6 +20,7 @@ import ru.polyshelf.core.models.ProductEntity;
 import ru.polyshelf.core.repositories.InventoryRepository;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.time.Month;
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -546,6 +549,69 @@ class InventoryServiceTest {
         verify(inventoryRepository).findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, otherUserId);
         verify(inventoryRepository, never()).save(any(InventoryItemEntity.class));
         verifyNoMoreInteractions(inventoryRepository);
+    }
+
+    @Test
+    void getInventory_shouldMapItemsAndPassUserIdAndSort() {
+        Sort sort = Sort.by(Sort.Direction.ASC, "expirationDate");
+        InventoryItemEntity first = new InventoryItemEntity()
+                .setId(ITEM_ID)
+                .setUserId(USER_ID)
+                .setCustomName("Клубника");
+        ProductEntity product = new ProductEntity();
+        product.setName("Молоко");
+        InventoryItemEntity second = new InventoryItemEntity()
+                .setId(UUID.randomUUID())
+                .setUserId(USER_ID)
+                .setProduct(product);
+        InventoryItemResponse firstResponse = new InventoryItemResponse(
+                ITEM_ID, "Клубника", LocalDate.of(2026, Month.OCTOBER, 20),
+                null, null, null
+        );
+        InventoryItemResponse secondResponse = new InventoryItemResponse(
+                second.getId(), "Молоко", LocalDate.of(2026, Month.OCTOBER, 25),
+                null, null, null
+        );
+
+        when(inventoryRepository.findAllByUserIdAndDeletedAtIsNull(USER_ID, sort))
+                .thenReturn(List.of(first, second));
+        when(inventoryMapper.toInventoryItemResponse(first)).thenReturn(firstResponse);
+        when(inventoryMapper.toInventoryItemResponse(second)).thenReturn(secondResponse);
+
+        List<InventoryItemResponse> result = inventoryService.getInventory(USER_ID, sort);
+
+        assertEquals(List.of(firstResponse, secondResponse), result);
+        verify(inventoryRepository).findAllByUserIdAndDeletedAtIsNull(USER_ID, sort);
+        verify(inventoryMapper).toInventoryItemResponse(first);
+        verify(inventoryMapper).toInventoryItemResponse(second);
+        verifyNoMoreInteractions(inventoryRepository, inventoryMapper);
+        verifyNoInteractions(productService, productCandidateService);
+    }
+
+    @Test
+    void getInventory_shouldReturnEmptyList() {
+        Sort sort = Sort.unsorted();
+        when(inventoryRepository.findAllByUserIdAndDeletedAtIsNull(USER_ID, sort))
+                .thenReturn(List.of());
+
+        List<InventoryItemResponse> result = inventoryService.getInventory(USER_ID, sort);
+
+        assertTrue(result.isEmpty());
+        verify(inventoryRepository).findAllByUserIdAndDeletedAtIsNull(USER_ID, sort);
+        verifyNoInteractions(inventoryMapper);
+    }
+
+    @Test
+    void getInventory_shouldPropagateRepositoryException() {
+        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
+        when(inventoryRepository.findAllByUserIdAndDeletedAtIsNull(USER_ID, sort))
+                .thenThrow(new RuntimeException("Database unavailable"));
+
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> inventoryService.getInventory(USER_ID, sort));
+
+        assertEquals("Database unavailable", exception.getMessage());
+        verifyNoInteractions(inventoryMapper);
     }
 
 }
