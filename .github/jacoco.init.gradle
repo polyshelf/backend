@@ -10,6 +10,7 @@ allprojects {
           p.fileTree(dir: it, exclude: ['**/*Application.class', '**/models/**'])
         })
       }
+      p.tasks.named('jacocoTestReport') { reports { csv.required = true } }
     }
   }
 }
