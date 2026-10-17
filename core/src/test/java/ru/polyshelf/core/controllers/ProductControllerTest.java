@@ -32,6 +32,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ProductController.class)
@@ -473,6 +474,64 @@ class ProductControllerTest {
     @Test
     void deleteFromInventory_shouldRejectInvalidUuid() throws Exception {
         mockMvc.perform(delete("/products/{productId}", "invalid-uuid"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(inventoryService);
+    }
+
+    @Test
+    void markConsumed_shouldReturn204AndCallService() throws Exception {
+        mockMvc.perform(put("/products/{itemId}/consumption", PRODUCT_ID))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        verify(inventoryService).setConsumed(USER_ID, PRODUCT_ID, true);
+        verifyNoMoreInteractions(inventoryService);
+    }
+
+    @Test
+    void markNotConsumed_shouldReturn204AndCallService() throws Exception {
+        mockMvc.perform(delete("/products/{itemId}/consumption", PRODUCT_ID))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        verify(inventoryService).setConsumed(USER_ID, PRODUCT_ID, false);
+        verifyNoMoreInteractions(inventoryService);
+    }
+
+    @Test
+    void markConsumed_shouldReturn404WhenItemNotFoundOrNotOwned() throws Exception {
+        doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND))
+                .when(inventoryService).setConsumed(USER_ID, PRODUCT_ID, true);
+
+        mockMvc.perform(put("/products/{itemId}/consumption", PRODUCT_ID))
+                .andExpect(status().isNotFound());
+
+        verify(inventoryService).setConsumed(USER_ID, PRODUCT_ID, true);
+    }
+
+    @Test
+    void markNotConsumed_shouldReturn404WhenItemNotFoundOrNotOwned() throws Exception {
+        doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND))
+                .when(inventoryService).setConsumed(USER_ID, PRODUCT_ID, false);
+
+        mockMvc.perform(delete("/products/{itemId}/consumption", PRODUCT_ID))
+                .andExpect(status().isNotFound());
+
+        verify(inventoryService).setConsumed(USER_ID, PRODUCT_ID, false);
+    }
+
+    @Test
+    void markConsumed_shouldRejectInvalidUuid() throws Exception {
+        mockMvc.perform(put("/products/{itemId}/consumption", "invalid-uuid"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(inventoryService);
+    }
+
+    @Test
+    void markNotConsumed_shouldRejectInvalidUuid() throws Exception {
+        mockMvc.perform(delete("/products/{itemId}/consumption", "invalid-uuid"))
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(inventoryService);

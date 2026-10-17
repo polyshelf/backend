@@ -9,6 +9,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -68,6 +69,26 @@ public class ProductController {
             @PathVariable UUID itemId
     ) {
         inventoryService.delete(user.userId(), itemId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @SecurityRequirement(name = "bearerAuth")
+    @PutMapping("/{itemId}/consumption")
+    public ResponseEntity<Void> markConsumed(
+            @AuthenticationPrincipal UserPrincipal user,
+            @PathVariable UUID itemId
+    ) {
+        inventoryService.setConsumed(user.userId(), itemId, true);
+        return ResponseEntity.noContent().build();
+    }
+
+    @SecurityRequirement(name = "bearerAuth")
+    @DeleteMapping("/{itemId}/consumption")
+    public ResponseEntity<Void> markNotConsumed(
+            @AuthenticationPrincipal UserPrincipal user,
+            @PathVariable UUID itemId
+    ) {
+        inventoryService.setConsumed(user.userId(), itemId, false);
         return ResponseEntity.noContent().build();
     }
 

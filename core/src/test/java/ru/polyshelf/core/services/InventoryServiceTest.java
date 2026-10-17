@@ -440,4 +440,112 @@ class InventoryServiceTest {
         verifyNoMoreInteractions(inventoryRepository);
     }
 
+    @Test
+    void setConsumed_shouldMarkItemConsumed() {
+        InventoryItemEntity item = new InventoryItemEntity()
+                .setId(ITEM_ID)
+                .setUserId(USER_ID);
+
+        when(inventoryRepository.findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, USER_ID))
+                .thenReturn(Optional.of(item));
+
+        OffsetDateTime before = OffsetDateTime.now();
+        inventoryService.setConsumed(USER_ID, ITEM_ID, true);
+        OffsetDateTime after = OffsetDateTime.now();
+
+        assertNotNull(item.getConsumedAt());
+        assertFalse(item.getConsumedAt().isBefore(before));
+        assertFalse(item.getConsumedAt().isAfter(after));
+        verify(inventoryRepository).findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, USER_ID);
+        verify(inventoryRepository, never()).save(any(InventoryItemEntity.class));
+        verifyNoMoreInteractions(inventoryRepository);
+    }
+
+    @Test
+    void setConsumed_shouldKeepOriginalTimestampWhenAlreadyConsumed() {
+        OffsetDateTime originalConsumedAt = OffsetDateTime.parse("2026-10-16T12:00:00Z");
+        InventoryItemEntity item = new InventoryItemEntity()
+                .setId(ITEM_ID)
+                .setUserId(USER_ID)
+                .setConsumedAt(originalConsumedAt);
+
+        when(inventoryRepository.findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, USER_ID))
+                .thenReturn(Optional.of(item));
+
+        inventoryService.setConsumed(USER_ID, ITEM_ID, true);
+
+        assertEquals(originalConsumedAt, item.getConsumedAt());
+        verify(inventoryRepository).findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, USER_ID);
+        verify(inventoryRepository, never()).save(any(InventoryItemEntity.class));
+        verifyNoMoreInteractions(inventoryRepository);
+    }
+
+    @Test
+    void setConsumed_shouldClearConsumedAtWhenMarkingNotConsumed() {
+        InventoryItemEntity item = new InventoryItemEntity()
+                .setId(ITEM_ID)
+                .setUserId(USER_ID)
+                .setConsumedAt(OffsetDateTime.parse("2026-10-16T12:00:00Z"));
+
+        when(inventoryRepository.findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, USER_ID))
+                .thenReturn(Optional.of(item));
+
+        inventoryService.setConsumed(USER_ID, ITEM_ID, false);
+
+        assertNull(item.getConsumedAt());
+        verify(inventoryRepository).findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, USER_ID);
+        verify(inventoryRepository, never()).save(any(InventoryItemEntity.class));
+        verifyNoMoreInteractions(inventoryRepository);
+    }
+
+    @Test
+    void setConsumed_shouldDoNothingWhenAlreadyNotConsumed() {
+        InventoryItemEntity item = new InventoryItemEntity()
+                .setId(ITEM_ID)
+                .setUserId(USER_ID);
+
+        when(inventoryRepository.findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, USER_ID))
+                .thenReturn(Optional.of(item));
+
+        inventoryService.setConsumed(USER_ID, ITEM_ID, false);
+
+        assertNull(item.getConsumedAt());
+        verify(inventoryRepository).findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, USER_ID);
+        verify(inventoryRepository, never()).save(any(InventoryItemEntity.class));
+        verifyNoMoreInteractions(inventoryRepository);
+    }
+
+    @Test
+    void setConsumed_shouldReturn404WhenItemIsNotFound() {
+        when(inventoryRepository.findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, USER_ID))
+                .thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> inventoryService.setConsumed(USER_ID, ITEM_ID, true)
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verify(inventoryRepository).findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, USER_ID);
+        verify(inventoryRepository, never()).save(any(InventoryItemEntity.class));
+        verifyNoMoreInteractions(inventoryRepository);
+    }
+
+    @Test
+    void setConsumed_shouldReturn404WhenItemIsNotOwned() {
+        UUID otherUserId = UUID.randomUUID();
+        when(inventoryRepository.findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, otherUserId))
+                .thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> inventoryService.setConsumed(otherUserId, ITEM_ID, false)
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verify(inventoryRepository).findByIdAndUserIdAndDeletedAtIsNull(ITEM_ID, otherUserId);
+        verify(inventoryRepository, never()).save(any(InventoryItemEntity.class));
+        verifyNoMoreInteractions(inventoryRepository);
+    }
+
 }

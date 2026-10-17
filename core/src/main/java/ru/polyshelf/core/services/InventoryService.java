@@ -66,6 +66,21 @@ public class InventoryService {
         item.setDeletedAt(OffsetDateTime.now(ZoneOffset.UTC));
     }
 
+    @Transactional
+    public void setConsumed(UUID userId, UUID itemId, boolean isConsumed) {
+        InventoryItemEntity item = inventoryRepository
+                .findByIdAndUserIdAndDeletedAtIsNull(itemId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+        boolean alreadyConsumed = item.getConsumedAt() != null;
+
+        if (alreadyConsumed == isConsumed) {
+            return;
+        }
+
+        item.setConsumedAt(isConsumed ? OffsetDateTime.now(ZoneOffset.UTC) : null);
+    }
+
     private ProductResponse saveCustom(UUID userId, String name, LocalDate expirationDate) {
         InventoryItemEntity item = new InventoryItemEntity()
                 .setUserId(userId)
