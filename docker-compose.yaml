@@ -43,6 +43,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-polyshelf_db}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-polyshelf_user}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
+      JWT_PUBLIC_KEY_LOCATION: file:/run/keys/public.pem
+    volumes:
+      - ${JWT_KEYS_DIR:?задайте JWT_KEYS_DIR в .env}/public.pem:/run/keys/public.pem:ro
     depends_on:
       migrations:
         condition: service_completed_successfully
@@ -64,6 +67,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-polyshelf_db}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-polyshelf_user}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
+      JWT_PRIVATE_KEY_LOCATION: file:/run/keys/private.pem
+    volumes:
+      - ${JWT_KEYS_DIR:?задайте JWT_KEYS_DIR в .env}/private.pem:/run/keys/private.pem:ro
     depends_on:
       migrations:
         condition: service_completed_successfully
