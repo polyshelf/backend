@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.polyshelf.core.dto.ProductResponse;
+import ru.polyshelf.core.dto.ProductWithBarcodeCandidateRequest;
 import ru.polyshelf.core.dto.ProductWithBarcodeRequest;
 import ru.polyshelf.core.dto.ProductWithoutCodeRequest;
 import ru.polyshelf.core.security.UserPrincipal;
@@ -32,6 +33,17 @@ public class ProductController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(inventoryService.addWithCode(user.userId(), request));
+    }
+
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/from-barcode-candidate")
+    public ResponseEntity<ProductResponse> addWithBarcodeCandidate(
+            @AuthenticationPrincipal UserPrincipal user,
+            @Valid @RequestBody ProductWithBarcodeCandidateRequest request
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(inventoryService.addWithCodeCandidate(user.userId(), request));
     }
 
     @SecurityRequirement(name = "bearerAuth")
