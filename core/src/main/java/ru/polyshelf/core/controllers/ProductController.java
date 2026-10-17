@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.polyshelf.core.dto.ProductResponse;
+import ru.polyshelf.core.dto.ProductWithBarcodeRequest;
 import ru.polyshelf.core.dto.ProductWithoutCodeRequest;
 import ru.polyshelf.core.services.InventoryService;
 import ru.polyshelf.core.utils.DevJwtService;
@@ -23,6 +24,21 @@ public class ProductController {
 
     private final DevJwtService jwtService;
     private final InventoryService inventoryService;
+
+    //@SecurityRequirement(name = "bearerAuth")
+    //@PreAuthorize("isAuthenticated()")
+    @PostMapping("/from-barcode")
+    public ResponseEntity<ProductResponse> addWithBarcode(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody ProductWithBarcodeRequest request
+    ) {
+        UUID userId = jwtService.extractUserId(authorization);
+        ProductResponse response = inventoryService.addWithCode(userId, request);
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
+    }
 
     //@SecurityRequirement(name = "bearerAuth")
     //@PreAuthorize("isAuthenticated()")
