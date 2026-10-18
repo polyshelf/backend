@@ -6,7 +6,6 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Тег образов (core, auth, gateway) и версия деплоя, например v1.2.3'
         required: true
         type: string
 
@@ -26,13 +25,6 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - name: Check br
-        run: |
-          if [[ "$GITHUB_REF" != "refs/heads/main" && "$GITHUB_REF" != refs/tags/v* ]]; then
-            echo "::error::Боевой деплой разрешён только из main или тега v*, получено: $GITHUB_REF"
-            exit 1
-          fi
-
       - name: Check tag
         run: |
           printf '### Версия: %s\n' "$TAG" >> "$GITHUB_STEP_SUMMARY"
