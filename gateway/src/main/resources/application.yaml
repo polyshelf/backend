@@ -6,6 +6,13 @@ spring:
       server:
         webmvc:
           routes:
+            - id: auth-docs
+              uri: ${POLYSHELF_AUTH_URL:http://localhost:8082}
+              order: 0
+              predicates:
+                - Path=/auth-docs/**
+              filters:
+                - StripPrefix=1
             - id: auth
               uri: ${POLYSHELF_AUTH_URL:http://localhost:8082}
               order: 0

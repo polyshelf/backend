@@ -17,3 +17,12 @@ spring:
             - polyshelf-api
 server:
   port: 8081
+
+springdoc:
+  swagger-ui:
+    urls:
+      - name: core
+        url: /v3/api-docs
+      - name: auth
+        url: /auth-docs/v3/api-docs
+    urls-primary-name: core
