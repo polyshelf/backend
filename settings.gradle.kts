@@ -3,5 +3,6 @@ rootProject.name = "polyshelf-backend"
 include(
     "core",
     "gateway",
-    "auth"
+    "auth",
+    "datamatrix-adapter"
 )
