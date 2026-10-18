@@ -1,14 +1,14 @@
 name: CD
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       tag:
         description: 'Тег образов (core, auth, gateway) и версия деплоя, например v1.2.3'
         required: true
         type: string
-  push:
-    branches: [feature/cd-init]
 
 concurrency:
   group: cd
@@ -20,13 +20,20 @@ permissions:
 
 env:
   IMAGE_PREFIX: ghcr.io/polyshelf/backend
-  TAG: ${{ inputs.tag || format('v0.0.0-test.{0}', github.run_number) }}
+  TAG: ${{ inputs.tag || github.event.release.tag_name }}
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - name: Tag
+      - name: Check br
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/main" && "$GITHUB_REF" != refs/tags/v* ]]; then
+            echo "::error::Боевой деплой разрешён только из main или тега v*, получено: $GITHUB_REF"
+            exit 1
+          fi
+
+      - name: Check tag
         run: |
           printf '### Версия: %s\n' "$TAG" >> "$GITHUB_STEP_SUMMARY"
           if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
@@ -67,7 +74,8 @@ jobs:
     environment: prod
     steps:
       - uses: actions/checkout@v5
-      - name: SSH checkout
+
+      - name: SSH
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -97,13 +105,13 @@ jobs:
           EOF
           chmod 600 ~/.ssh/config
 
-      - name: Delivery via ssh
+      - name: SSH delivery
         run: |
           ssh deploy 'mkdir -p ~/polyshelf/flyway/migration && rm -f ~/polyshelf/flyway/migration/*.sql'
           scp docker-compose.yaml deploy:polyshelf/docker-compose.yaml
           scp flyway/migration/*.sql deploy:polyshelf/flyway/migration/
 
-      - name: CHCR check in
+      - name: GHCR check in
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -147,10 +155,6 @@ jobs:
           [ "$login_code" = "400" ] && [ "$core_code" = "401" ]
           REMOTE
 
-      - name: CHCR check out
+      - name: GHCR check out
         if: always()
         run: ssh deploy "docker logout ghcr.io" || true
-
-      - name: The end
-        if: always()
-        run: echo "Дякую. Узгоджено."

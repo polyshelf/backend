@@ -4,6 +4,11 @@ services:
   postgres:
     image: postgres:18
     restart: unless-stopped
+    mem_limit: 384m
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c max_connections=50
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-polyshelf_db}
       POSTGRES_USER: ${POSTGRES_USER:-polyshelf_user}
@@ -20,7 +25,9 @@ services:
   migrations:
     image: flyway/flyway:11
     command: migrate
+    mem_limit: 384m
     environment:
+      JAVA_TOOL_OPTIONS: -Xmx192m
       FLYWAY_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-polyshelf_db}
       FLYWAY_USER: ${POSTGRES_USER:-polyshelf_user}
       FLYWAY_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
@@ -36,10 +43,13 @@ services:
   core:
     image: ghcr.io/polyshelf/backend-core:${TAG:?required}
     restart: unless-stopped
+    mem_limit: 448m
     environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65 -XX:+ExitOnOutOfMemoryError
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-polyshelf_db}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-polyshelf_user}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "8"
       JWT_PUBLIC_KEY_LOCATION: file:/run/keys/public.pem
     volumes:
       - ${JWT_KEYS_DIR:?задайте JWT_KEYS_DIR в .env}/public.pem:/run/keys/public.pem:ro
@@ -51,16 +61,19 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
-      start_period: 40s
+      start_period: 60s
     networks: [backend]
 
   auth:
     image: ghcr.io/polyshelf/backend-auth:${TAG:?required}
     restart: unless-stopped
+    mem_limit: 448m
     environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65 -XX:+ExitOnOutOfMemoryError
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-polyshelf_db}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-polyshelf_user}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "8"
       JWT_PRIVATE_KEY_LOCATION: file:/run/keys/private.pem
     volumes:
       - ${JWT_KEYS_DIR:?задайте JWT_KEYS_DIR в .env}/private.pem:/run/keys/private.pem:ro
@@ -72,15 +85,17 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
-      start_period: 40s
+      start_period: 60s
     networks: [backend]
 
   gateway:
     image: ghcr.io/polyshelf/backend-gateway:${TAG:?required}
     restart: unless-stopped
+    mem_limit: 384m
     ports:
-      - "${GATEWAY_PORT:-8080}:8080"
+      - "127.0.0.1:${GATEWAY_PORT:-8080}:8080"
     environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65 -XX:+ExitOnOutOfMemoryError
       POLYSHELF_CORE_URL: http://core:8081
       POLYSHELF_AUTH_URL: http://auth:8082
     depends_on:
@@ -93,8 +108,39 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
-      start_period: 40s
+      start_period: 60s
     networks: [backend]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    mem_limit: 64m
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      gateway:
+        condition: service_healthy
+    networks: [backend]
+
+configs:
+  caddyfile:
+    content: |
+      ${POLYSHELF_DOMAIN:-polyshelf.wedwin.ru} {
+        encode zstd gzip
+        reverse_proxy gateway:8080
+      }
+
+volumes:
+  caddy_data:
+  caddy_config:
 
 networks:
   backend:
