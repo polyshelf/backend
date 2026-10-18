@@ -1,0 +1,160 @@
+name: CD
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Тег образов (core, auth, gateway) и версия деплоя, например v1.2.3'
+        required: true
+        type: string
+
+concurrency:
+  group: cd
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_PREFIX: ghcr.io/polyshelf/backend
+  TAG: ${{ inputs.tag || github.event.release.tag_name }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check br
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/main" && "$GITHUB_REF" != refs/tags/v* ]]; then
+            echo "::error::Боевой деплой разрешён только из main или тега v*, получено: $GITHUB_REF"
+            exit 1
+          fi
+
+      - name: Check tag
+        run: |
+          printf '### Версия: %s\n' "$TAG" >> "$GITHUB_STEP_SUMMARY"
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::Тег должен быть вида v1.2.3 (или v1.2.3-rc1), получено: $TAG"
+            exit 1
+          fi
+
+  build:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: true
+      matrix:
+        module: [core, auth, gateway]
+    name: build+push (${{ matrix.module }})
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and push
+        env:
+          MODULE: ${{ matrix.module }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="${IMAGE_PREFIX}-${MODULE}:${TAG}"
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker build \
+            --build-arg MODULE="$MODULE" \
+            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.version=${TAG}" \
+            -t "$image" .
+          docker push "$image"
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: prod
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          missing=0
+          for v in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Секрет $v не задан или пустой"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host deploy
+            HostName $DEPLOY_HOST
+            User $DEPLOY_USER
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: SSH delivery
+        run: |
+          ssh deploy 'mkdir -p ~/polyshelf/flyway/migration && rm -f ~/polyshelf/flyway/migration/*.sql'
+          scp docker-compose.yaml deploy:polyshelf/docker-compose.yaml
+          scp flyway/migration/*.sql deploy:polyshelf/flyway/migration/
+
+      - name: GHCR check in
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | ssh deploy 'docker login ghcr.io -u github-actions --password-stdin'
+
+      - name: Deploy
+        run: |
+          ssh deploy bash -s -- "$TAG" <<'REMOTE'
+          set -euo pipefail
+          TAG=$1
+          export TAG
+          cd ~/polyshelf
+          touch .env
+          if grep -q '^TAG=' .env; then
+            sed -i "s/^TAG=.*/TAG=${TAG}/" .env
+          else
+            echo "TAG=${TAG}" >> .env
+          fi
+
+          docker compose pull
+          docker compose up -d --remove-orphans
+
+          status=""
+          for _ in $(seq 1 40); do
+            status=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q gateway)" 2>/dev/null || true)
+            [ "$status" = "healthy" ] && break
+            sleep 5
+          done
+          if [ "$status" != "healthy" ]; then
+            docker compose ps -a
+            docker compose logs --tail=80
+            exit 1
+          fi
+
+          port=$(grep -E '^GATEWAY_PORT=' .env | cut -d= -f2 || true)
+          port=${port:-8080}
+          login_code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "localhost:${port}/auth/login" -H 'Content-Type: application/json' -d '{}')
+          core_code=$(curl -s -o /dev/null -w '%{http_code}' "localhost:${port}/products/inventory")
+          echo "POST /auth/login без тела -> ${login_code} (ждём 400)"
+          echo "GET /products/inventory без токена -> ${core_code} (ждём 401)"
+          [ "$login_code" = "400" ] && [ "$core_code" = "401" ]
+          REMOTE
+
+      - name: GHCR check out
+        if: always()
+        run: ssh deploy "docker logout ghcr.io" || true
