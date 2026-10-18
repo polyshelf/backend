@@ -3,6 +3,7 @@ package ru.polyshelf.core.mappers;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
+import ru.polyshelf.core.dto.InventoryItemResponse;
 import ru.polyshelf.core.dto.ProductResponse;
 import ru.polyshelf.core.models.InventoryItemEntity;
 
@@ -11,6 +12,9 @@ public interface InventoryMapper {
 
     @Mapping(target = "name", source = "item", qualifiedByName = "resolveName")
     ProductResponse toProductResponse(InventoryItemEntity item);
+
+    @Mapping(target = "name", source = "item", qualifiedByName = "resolveName")
+    InventoryItemResponse toInventoryItemResponse(InventoryItemEntity item);
 
     @Named("resolveName")
     default String resolveName(InventoryItemEntity item) {

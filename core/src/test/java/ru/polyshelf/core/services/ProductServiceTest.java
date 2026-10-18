@@ -1,4 +1,3 @@
-
 package ru.polyshelf.core.services;
 
 import org.junit.jupiter.api.Test;
@@ -75,6 +74,39 @@ class ProductServiceTest {
         assertSame(product, result);
 
         verify(productRepository).findByBarcode(barcode);
+    }
+
+    @Test
+    void checkNotExistsInCatalog_shouldAllowUnknownBarcode() {
+        String barcode = "4601234567890";
+        when(productRepository.existsByBarcode(barcode)).thenReturn(false);
+
+        assertDoesNotThrow(() -> productService.checkNotExistsInCatalog(barcode));
+
+        verify(productRepository).existsByBarcode(barcode);
+    }
+
+    @Test
+    void checkNotExistsInCatalog_shouldThrow409WhenProductExists() {
+        String barcode = "4601234567890";
+        when(productRepository.existsByBarcode(barcode)).thenReturn(true);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> productService.checkNotExistsInCatalog(barcode)
+        );
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(productRepository).existsByBarcode(barcode);
+    }
+
+    @Test
+    void checkNotExistsInCatalog_shouldStripBarcode() {
+        String barcode = "4601234567890";
+
+        productService.checkNotExistsInCatalog("  " + barcode + "  ");
+
+        verify(productRepository).existsByBarcode(barcode);
     }
 
 }

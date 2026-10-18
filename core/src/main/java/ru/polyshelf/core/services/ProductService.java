@@ -20,4 +20,10 @@ public class ProductService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found in catalog"));
     }
 
+    protected void checkNotExistsInCatalog(String code) {
+        if (productRepository.existsByBarcode(code.strip())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Product already exists in catalog");
+        }
+    }
+
 }

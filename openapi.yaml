@@ -203,10 +203,8 @@ paths:
         Сервер устанавливает consumed_at в текущее время.
         Если продукт уже употреблён, consumed_at не изменяется.
       responses:
-        '201':
-          description: Отметка об употреблении создана
         '204':
-          description: Продукт уже отмечен употреблённым
+          description: Продукт отмечен употреблённым
         '404':
           description: Продукт не найден в инвентаре
 
@@ -220,7 +218,7 @@ paths:
         операция также считается успешной.
       responses:
         '204':
-          description: Отметка об употреблении отсутствует
+          description: Продукт отмечен неупотреблённым
         '404':
           description: Продукт не найден в инвентаре
 
@@ -228,7 +226,7 @@ paths:
     get:
       tags:
         - Products
-      summary: Получить список продуктов пользователя
+      summary: Получить список продуктов пользователя (поддерживает сортировку)
       responses:
         '200':
           description: Список продуктов
@@ -322,11 +320,11 @@ components:
     ProductBarcodeCandidateRequest:
       type: object
       required:
-        - barcode
+        - code
         - name
         - expiration_date
       properties:
-        barcode:
+        code:
           type: string
           example: '4601234567890'
         name:
