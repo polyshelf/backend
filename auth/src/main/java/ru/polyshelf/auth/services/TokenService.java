@@ -19,6 +19,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
@@ -43,7 +44,7 @@ public class TokenService {
         RefreshTokenEntity stored = new RefreshTokenEntity();
         stored.setUserId(user.getId());
         stored.setTokenHash(hash(refreshToken));
-        stored.setExpiresAt(OffsetDateTime.now().plus(properties.refreshTtl()));
+        stored.setExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).plus(properties.refreshTtl()));
         refreshTokenRepository.save(stored);
 
         return new AuthTokensResponse(accessToken(user), refreshToken, "Bearer", properties.accessTtl().toSeconds());
@@ -56,7 +57,7 @@ public class TokenService {
             return Optional.empty();
         }
         return stored
-                .filter(token -> token.getExpiresAt().isAfter(OffsetDateTime.now()))
+                .filter(token -> token.getExpiresAt().isAfter(OffsetDateTime.now(ZoneOffset.UTC)))
                 .map(RefreshTokenEntity::getUserId);
     }
 

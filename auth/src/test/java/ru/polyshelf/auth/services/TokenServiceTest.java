@@ -22,6 +22,7 @@ import java.security.KeyPair;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -78,9 +79,10 @@ class TokenServiceTest {
 
         assertEquals("RS256", jwt.getHeaders().get("alg"));
         assertEquals(USER_ID.toString(), jwt.getSubject());
-        assertEquals("polyshelf-auth", jwt.getIssuer().toString());
+        assertEquals("polyshelf-auth", jwt.getClaimAsString("iss"));
         assertEquals(List.of("polyshelf-api"), jwt.getAudience());
         assertEquals("ADMIN", jwt.getClaimAsString("role"));
+        assert jwt.getIssuedAt() != null;
         assertEquals(Duration.ofMinutes(15), Duration.between(jwt.getIssuedAt(), jwt.getExpiresAt()));
         assertEquals("Bearer", tokens.tokenType());
         assertEquals(900, tokens.expiresIn());
@@ -94,7 +96,7 @@ class TokenServiceTest {
         assertEquals(USER_ID, saved.getUserId());
         assertEquals(64, saved.getTokenHash().length());
         assertNotEquals(tokens.refreshToken(), saved.getTokenHash());
-        assertTrue(saved.getExpiresAt().isAfter(OffsetDateTime.now().plusDays(29)));
+        assertTrue(saved.getExpiresAt().isAfter(OffsetDateTime.now(ZoneOffset.UTC).plusDays(29)));
     }
 
     @Test
@@ -119,7 +121,7 @@ class TokenServiceTest {
     void rejectsExpiredRefreshToken() {
         AuthTokensResponse tokens = tokenService.issue(user);
         RefreshTokenEntity saved = savedToken();
-        saved.setExpiresAt(OffsetDateTime.now().minusMinutes(1));
+        saved.setExpiresAt(OffsetDateTime.now(ZoneOffset.UTC).minusMinutes(1));
         when(refreshTokenRepository.findByTokenHash(saved.getTokenHash())).thenReturn(Optional.of(saved));
         when(refreshTokenRepository.deleteByTokenHash(saved.getTokenHash())).thenReturn(1);
 

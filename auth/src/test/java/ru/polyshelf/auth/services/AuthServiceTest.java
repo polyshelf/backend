@@ -80,8 +80,10 @@ class AuthServiceTest {
     void registerMapsDuplicateEmailToConflict() {
         when(userRepository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("duplicate"));
 
+        AuthCredentials credentials = new AuthCredentials("user@example.com", "secret1");
+
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> authService.register(new AuthCredentials("user@example.com", "secret1")));
+                () -> authService.register(credentials));
 
         assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
     }
@@ -105,8 +107,10 @@ class AuthServiceTest {
     void loginMapsBadCredentialsToUnauthorized() {
         when(authenticationManager.authenticate(any())).thenThrow(new BadCredentialsException("bad"));
 
+        AuthCredentials credentials = new AuthCredentials("user@example.com", "wrong-password");
+
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> authService.login(new AuthCredentials("user@example.com", "wrong-password")));
+                () -> authService.login(credentials));
 
         assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatusCode());
         verifyNoInteractions(tokenService);
