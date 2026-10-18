@@ -294,7 +294,7 @@ components:
         expires_in:
           type: integer
           description: Срок действия Access Token в секундах
-          example: 900
+          example: 1800
 
     ProductDataMatrixRequest:
       type: object
