@@ -1,8 +1,18 @@
 name: Commit build & test
 
 on:
-  push:
-    branches: ['**']
+  workflow_dispatch:
+    inputs:
+      module:
+        description: 'Какой модуль собрать и протестировать'
+        required: true
+        type: choice
+        default: all
+        options:
+          - all
+          - core
+          - auth
+          - gateway
 
 concurrency:
   group: commit-${{ github.ref }}
@@ -15,14 +25,18 @@ jobs:
       matrix: ${{ steps.d.outputs.matrix }}
       has: ${{ steps.d.outputs.has }}
     steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
       - id: d
         env:
-          BEFORE: ${{ github.event.before }}
-          SHA: ${{ github.sha }}
-        run: bash .github/scripts/detect-changed.sh "$BEFORE" "$SHA" ..
+          MODULE: ${{ inputs.module }}
+        run: |
+          if [ "$MODULE" = "all" ]; then
+            matrix='["core","auth","gateway"]'
+          else
+            matrix="[\"$MODULE\"]"
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "has=true" >> "$GITHUB_OUTPUT"
+          printf '### Модули: %s\n' "$matrix" >> "$GITHUB_STEP_SUMMARY"
 
   build:
     needs: detect
