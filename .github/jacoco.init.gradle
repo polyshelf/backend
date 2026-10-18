@@ -10,6 +10,12 @@ allprojects {
           p.fileTree(dir: it, exclude: ['**/*Application.class', '**/models/**'])
         })
       }
+      p.tasks.named('jacocoTestReport') { t ->
+        t.reports { csv.required = true }
+        t.classDirectories.setFrom(t.classDirectories.files.collect {
+          p.fileTree(dir: it, exclude: ['**/*Application.class', '**/models/**'])
+        })
+      }
     }
   }
 }

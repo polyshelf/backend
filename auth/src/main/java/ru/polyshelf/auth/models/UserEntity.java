@@ -2,6 +2,8 @@ package ru.polyshelf.auth.models;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -11,6 +13,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
+import ru.polyshelf.auth.security.UserRole;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -34,6 +37,11 @@ public class UserEntity {
     @NotNull
     @Column(name = "password_hash", nullable = false, length = Integer.MAX_VALUE, columnDefinition = "text")
     private String passwordHash;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false, length = 32)
+    private UserRole role = UserRole.USER;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

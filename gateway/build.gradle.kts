@@ -27,11 +27,9 @@ dependencyManagement {
 
 dependencies {
     implementation(libs.spring.cloud.gateway)
-    implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.boot.starter.actuator)
 
     testImplementation(libs.spring.boot.starter.webmvc.test)
-    testImplementation(libs.spring.boot.starter.security.test)
 
     testRuntimeOnly(libs.junit.platform.launcher)
 }

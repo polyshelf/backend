@@ -66,3 +66,5 @@ Thumbs.db
 .sts4-cache
 bin/
 
+/keys/
+private*.pem

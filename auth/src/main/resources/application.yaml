@@ -8,5 +8,10 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+polyshelf:
+  jwt:
+    private-key-location: ${JWT_PRIVATE_KEY_LOCATION:classpath:keys/private_local.pem}
+    access-ttl: 15m
+    refresh-ttl: 30d
 server:
   port: 8082
