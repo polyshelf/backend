@@ -64,7 +64,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: production
+    environment: prod
     steps:
       - uses: actions/checkout@v5
       - name: SSH checkout
@@ -100,7 +100,7 @@ jobs:
       - name: Delivery via ssh
         run: |
           ssh deploy 'mkdir -p ~/polyshelf/flyway/migration && rm -f ~/polyshelf/flyway/migration/*.sql'
-          scp docker-compose.prod.yaml deploy:polyshelf/docker-compose.yaml
+          scp docker-compose.yaml deploy:polyshelf/docker-compose.yaml
           scp flyway/migration/*.sql deploy:polyshelf/flyway/migration/
 
       - name: CHCR check in
