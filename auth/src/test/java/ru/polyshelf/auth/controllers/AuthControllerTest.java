@@ -10,6 +10,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 import ru.polyshelf.auth.dto.AuthTokensResponse;
+import ru.polyshelf.auth.exception.AuthApiException;
+import ru.polyshelf.auth.exception.AuthErrorCode;
 import ru.polyshelf.auth.services.AuthService;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -115,6 +117,39 @@ class AuthControllerTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(authService);
+    }
+
+    @Test
+    void yandexReturns200() throws Exception {
+        when(authService.yandex(any())).thenReturn(TOKENS);
+
+        mockMvc.perform(post("/auth/yandex")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"access_token\":\"ya-token\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.access_token").value("access"));
+    }
+
+    @Test
+    void yandexRejectsBlankToken() throws Exception {
+        mockMvc.perform(post("/auth/yandex")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"access_token\":\"\"}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(authService);
+    }
+
+    @Test
+    void yandexReturnsErrorCodeInBody() throws Exception {
+        when(authService.yandex(any())).thenThrow(
+                new AuthApiException(HttpStatus.CONFLICT, AuthErrorCode.YANDEX_LINK_REQUIRED, "link"));
+
+        mockMvc.perform(post("/auth/yandex")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"access_token\":\"ya-token\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("YANDEX_LINK_REQUIRED"));
     }
 
 }

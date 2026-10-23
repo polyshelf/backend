@@ -13,5 +13,8 @@ polyshelf:
     private-key-location: ${JWT_PRIVATE_KEY_LOCATION:classpath:keys/private_local.pem}
     access-ttl: 30m
     refresh-ttl: 30d
+  yandex:
+    client-id: ${YANDEX_CLIENT_ID:}
+    info-url: https://login.yandex.ru/info
 server:
   port: 8082

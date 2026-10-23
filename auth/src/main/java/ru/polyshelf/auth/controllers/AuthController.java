@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import ru.polyshelf.auth.dto.AuthCredentials;
 import ru.polyshelf.auth.dto.AuthTokensResponse;
 import ru.polyshelf.auth.dto.RefreshTokenRequest;
+import ru.polyshelf.auth.dto.YandexAuthRequest;
 import ru.polyshelf.auth.services.AuthService;
 
 @RestController
@@ -28,6 +29,11 @@ public class AuthController {
     @PostMapping("/login")
     public AuthTokensResponse login(@Valid @RequestBody AuthCredentials request) {
         return authService.login(request);
+    }
+
+    @PostMapping("/yandex")
+    public AuthTokensResponse yandex(@Valid @RequestBody YandexAuthRequest request) {
+        return authService.yandex(request);
     }
 
     @PostMapping("/refresh")

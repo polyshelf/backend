@@ -12,9 +12,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import ru.polyshelf.auth.dto.AuthCredentials;
 import ru.polyshelf.auth.dto.AuthTokensResponse;
+import ru.polyshelf.auth.dto.YandexAuthRequest;
+import ru.polyshelf.auth.exception.AuthApiException;
+import ru.polyshelf.auth.exception.AuthErrorCode;
 import ru.polyshelf.auth.models.UserEntity;
 import ru.polyshelf.auth.repositories.UserRepository;
 import ru.polyshelf.auth.security.AuthUserDetails;
+import ru.polyshelf.auth.yandex.YandexClient;
+import ru.polyshelf.auth.yandex.YandexProfile;
 
 import java.util.Locale;
 import java.util.Objects;
@@ -27,21 +32,32 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final TokenService tokenService;
+    private final YandexClient yandexClient;
 
     @Transactional
     public AuthTokensResponse register(AuthCredentials credentials) {
+        String email = normalize(credentials.email());
+        userRepository.findByEmail(email).ifPresent(existing -> {
+            throw emailConflict(existing);
+        });
+
         UserEntity user = new UserEntity();
-        user.setEmail(normalize(credentials.email()));
+        user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(credentials.password()));
 
         try {
             return tokenService.issue(userRepository.saveAndFlush(user));
         } catch (DataIntegrityViolationException _) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email уже зарегистрирован");
+            throw new AuthApiException(HttpStatus.CONFLICT, AuthErrorCode.EMAIL_TAKEN, "Email уже зарегистрирован");
         }
     }
 
     public AuthTokensResponse login(AuthCredentials credentials) {
+        userRepository.findByEmail(normalize(credentials.email()))
+                .filter(existing -> existing.getPasswordHash() == null)
+                .ifPresent(existing -> {
+                    throw emailConflict(existing);
+                });
         try {
             var authentication = authenticationManager.authenticate(
                     UsernamePasswordAuthenticationToken.unauthenticated(
@@ -50,6 +66,57 @@ public class AuthService {
         } catch (AuthenticationException _) {
             throw unauthorized("Неверный email или пароль");
         }
+    }
+
+    @Transactional
+    public AuthTokensResponse yandex(YandexAuthRequest request) {
+        YandexProfile profile = yandexClient.fetchProfile(request.accessToken());
+
+        var linked = userRepository.findByYandexId(profile.id());
+        if (linked.isPresent()) {
+            return tokenService.issue(linked.get());
+        }
+
+        String email = profile.email();
+        var sameEmail = userRepository.findByEmail(email);
+        if (sameEmail.isPresent()) {
+            UserEntity existing = sameEmail.get();
+            if (existing.getYandexId() != null || existing.getPasswordHash() == null) {
+                throw new AuthApiException(HttpStatus.CONFLICT, AuthErrorCode.EMAIL_TAKEN,
+                        "Этот email уже привязан к другому Яндекс-аккаунту");
+            }
+            return linkYandex(existing, profile, request.linkPassword());
+        }
+
+        UserEntity user = new UserEntity();
+        user.setEmail(email);
+        user.setYandexId(profile.id());
+        try {
+            return tokenService.issue(userRepository.saveAndFlush(user));
+        } catch (DataIntegrityViolationException _) {
+            throw new AuthApiException(HttpStatus.SERVICE_UNAVAILABLE, AuthErrorCode.TRY_AGAIN,
+                    "Не удалось создать аккаунт, повторите попытку");
+        }
+    }
+
+    private AuthTokensResponse linkYandex(UserEntity existing, YandexProfile profile, String linkPassword) {
+        if (linkPassword == null || linkPassword.isBlank()) {
+            throw new AuthApiException(HttpStatus.CONFLICT, AuthErrorCode.YANDEX_LINK_REQUIRED,
+                    "Аккаунт с email " + existing.getEmail() + " уже есть. Подтвердите привязку Яндекса паролем");
+        }
+        if (!passwordEncoder.matches(linkPassword, existing.getPasswordHash())) {
+            throw new AuthApiException(HttpStatus.UNAUTHORIZED, AuthErrorCode.INVALID_PASSWORD, "Неверный пароль");
+        }
+        existing.setYandexId(profile.id());
+        return tokenService.issue(userRepository.saveAndFlush(existing));
+    }
+
+    private static AuthApiException emailConflict(UserEntity existing) {
+        if (existing.getPasswordHash() == null) {
+            return new AuthApiException(HttpStatus.CONFLICT, AuthErrorCode.EMAIL_BOUND_TO_YANDEX,
+                    "Этот email привязан к Яндексу, войдите через Яндекс");
+        }
+        return new AuthApiException(HttpStatus.CONFLICT, AuthErrorCode.EMAIL_TAKEN, "Email уже зарегистрирован");
     }
 
     @Transactional
