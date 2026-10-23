@@ -1,0 +1,12 @@
+package ru.polyshelf.auth.exception;
+
+public enum AuthErrorCode {
+    EMAIL_TAKEN,
+    EMAIL_BOUND_TO_YANDEX,
+    YANDEX_LINK_REQUIRED,
+    INVALID_PASSWORD,
+    YANDEX_TOKEN_INVALID,
+    YANDEX_UNAVAILABLE,
+    YANDEX_NOT_CONFIGURED,
+    TRY_AGAIN
+}

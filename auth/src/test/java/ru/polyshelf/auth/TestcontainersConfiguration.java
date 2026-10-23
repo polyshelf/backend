@@ -18,7 +18,10 @@ public class TestcontainersConfiguration {
                         "/docker-entrypoint-initdb.d/V1__init.sql")
                 .withCopyFileToContainer(
                         MountableFile.forHostPath("../flyway/migration/V2__refresh_token.sql"),
-                        "/docker-entrypoint-initdb.d/V2__refresh_token.sql");
+                        "/docker-entrypoint-initdb.d/V2__refresh_token.sql")
+                .withCopyFileToContainer(
+                        MountableFile.forHostPath("../flyway/migration/V3__yandex_login.sql"),
+                        "/docker-entrypoint-initdb.d/V3__yandex_login.sql");
     }
 
 }
