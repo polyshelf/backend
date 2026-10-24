@@ -7,6 +7,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -23,6 +25,8 @@ import ru.polyshelf.auth.yandex.YandexProfile;
 
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +37,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final TokenService tokenService;
     private final YandexClient yandexClient;
+    private final JwtDecoder jwtDecoder;
 
     @Transactional
     public AuthTokensResponse register(AuthCredentials credentials) {
@@ -78,7 +83,10 @@ public class AuthService {
         }
 
         String email = profile.email();
-        var sameEmail = userRepository.findByEmail(email);
+        var sameEmail = profile.emails().stream()
+                .map(userRepository::findByEmail)
+                .flatMap(Optional::stream)
+                .findFirst();
         if (sameEmail.isPresent()) {
             UserEntity existing = sameEmail.get();
             if (existing.getYandexId() != null || existing.getPasswordHash() == null) {
@@ -109,6 +117,28 @@ public class AuthService {
         }
         existing.setYandexId(profile.id());
         return tokenService.issue(userRepository.saveAndFlush(existing));
+    }
+
+    @Transactional
+    public void changePassword(String authorization, String currentPassword, String newPassword) {
+        UserEntity user = userRepository.findById(userId(authorization))
+                .orElseThrow(() -> unauthorized("Требуется авторизация"));
+        if (user.getPasswordHash() != null
+                && (currentPassword == null || !passwordEncoder.matches(currentPassword, user.getPasswordHash()))) {
+            throw new AuthApiException(HttpStatus.FORBIDDEN, AuthErrorCode.INVALID_PASSWORD, "Неверный текущий пароль");
+        }
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+    }
+
+    private UUID userId(String authorization) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            throw unauthorized("Требуется авторизация");
+        }
+        try {
+            return UUID.fromString(jwtDecoder.decode(authorization.substring("Bearer ".length())).getSubject());
+        } catch (JwtException | IllegalArgumentException _) {
+            throw unauthorized("Требуется авторизация");
+        }
     }
 
     private static AuthApiException emailConflict(UserEntity existing) {

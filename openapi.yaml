@@ -107,6 +107,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuthError'
 
+  /auth/change-password:
+    post:
+      tags:
+        - Authentication
+      summary: Задать или сменить пароль
+      description: >
+        Для аккаунта без пароля (вход через Яндекс) задаёт пароль, current_password не нужен.
+        Для аккаунта с паролем current_password обязателен.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: Пароль сохранён
+        '401':
+          description: Access token отсутствует, недействителен или истёк
+        '403':
+          description: Текущий пароль не передан или неверный
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+
   /auth/refresh:
     post:
       tags:
@@ -330,6 +356,22 @@ components:
           enum: [EMAIL_TAKEN, EMAIL_BOUND_TO_YANDEX, YANDEX_LINK_REQUIRED, INVALID_PASSWORD, YANDEX_TOKEN_INVALID, YANDEX_UNAVAILABLE]
         message:
           type: string
+
+    ChangePasswordRequest:
+      type: object
+      required:
+        - new_password
+      properties:
+        current_password:
+          type: string
+          format: password
+          maxLength: 72
+        new_password:
+          type: string
+          format: password
+          minLength: 6
+          maxLength: 72
+          example: 'mySecurePassword123'
 
     RefreshTokenRequest:
       type: object

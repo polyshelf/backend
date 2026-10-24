@@ -42,7 +42,7 @@ public class YandexClient {
                     .header(HttpHeaders.AUTHORIZATION, "OAuth " + oauthToken)
                     .retrieve()
                     .body(YandexProfile.class);
-        } catch (HttpClientErrorException _) {
+        } catch (HttpClientErrorException | IllegalArgumentException _) {
             throw invalidToken();
         } catch (RestClientException _) {
             throw new AuthApiException(HttpStatus.BAD_GATEWAY, AuthErrorCode.YANDEX_UNAVAILABLE,
