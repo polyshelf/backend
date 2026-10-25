@@ -36,7 +36,11 @@ paths:
         '400':
           description: Некорректный email или пароль
         '409':
-          description: Email уже зарегистрирован
+          description: Email уже зарегистрирован (`EMAIL_TAKEN`) или привязан к Яндексу (`EMAIL_BOUND_TO_YANDEX`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
 
   /auth/login:
     post:
@@ -59,6 +63,75 @@ paths:
                 $ref: '#/components/schemas/AuthTokensResponse'
         '401':
           description: Неверный email или пароль
+        '409':
+          description: Email привязан к Яндексу, пароля нет (`EMAIL_BOUND_TO_YANDEX`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+
+  /auth/yandex:
+    post:
+      tags:
+        - Authentication
+      summary: Вход или регистрация через Яндекс
+      description: >
+        Приложение получает OAuth-токен через Yandex LoginSDK и передаёт его сюда.
+        Новый пользователь создаётся автоматически. Если почта Яндекса совпала с обычным
+        аккаунтом, сервер отвечает 409 `YANDEX_LINK_REQUIRED`; повторный запрос с `link_password`
+        привязывает Яндекс к этому аккаунту.
+      security: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/YandexAuthRequest'
+      responses:
+        '200':
+          description: Вход выполнен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokensResponse'
+        '401':
+          description: Яндекс не принял токен (`YANDEX_TOKEN_INVALID`) или неверный пароль при привязке (`INVALID_PASSWORD`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '409':
+          description: Нужно подтвердить привязку паролем (`YANDEX_LINK_REQUIRED`) или email занят (`EMAIL_TAKEN`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+
+  /auth/change-password:
+    post:
+      tags:
+        - Authentication
+      summary: Задать или сменить пароль
+      description: >
+        Для аккаунта без пароля (вход через Яндекс) задаёт пароль, current_password не нужен.
+        Для аккаунта с паролем current_password обязателен.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: Пароль сохранён
+        '401':
+          description: Access token отсутствует, недействителен или истёк
+        '403':
+          description: Текущий пароль не передан или неверный
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
 
   /auth/refresh:
     post:
@@ -260,6 +333,44 @@ components:
           type: string
           format: password
           minLength: 6
+          example: 'mySecurePassword123'
+
+    YandexAuthRequest:
+      type: object
+      required:
+        - access_token
+      properties:
+        access_token:
+          type: string
+          description: OAuth-токен Яндекса из LoginSDK
+        link_password:
+          type: string
+          format: password
+          description: Пароль существующего аккаунта с той же почтой (только для подтверждения привязки)
+
+    AuthError:
+      type: object
+      properties:
+        code:
+          type: string
+          enum: [EMAIL_TAKEN, EMAIL_BOUND_TO_YANDEX, YANDEX_LINK_REQUIRED, INVALID_PASSWORD, YANDEX_TOKEN_INVALID, YANDEX_UNAVAILABLE]
+        message:
+          type: string
+
+    ChangePasswordRequest:
+      type: object
+      required:
+        - new_password
+      properties:
+        current_password:
+          type: string
+          format: password
+          maxLength: 72
+        new_password:
+          type: string
+          format: password
+          minLength: 6
+          maxLength: 72
           example: 'mySecurePassword123'
 
     RefreshTokenRequest:

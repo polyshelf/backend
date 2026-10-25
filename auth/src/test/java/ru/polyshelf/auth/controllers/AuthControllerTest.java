@@ -10,9 +10,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 import ru.polyshelf.auth.dto.AuthTokensResponse;
+import ru.polyshelf.auth.exception.AuthApiException;
+import ru.polyshelf.auth.exception.AuthErrorCode;
 import ru.polyshelf.auth.services.AuthService;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -115,6 +119,85 @@ class AuthControllerTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(authService);
+    }
+
+    @Test
+    void yandexReturns200() throws Exception {
+        when(authService.yandex(any())).thenReturn(TOKENS);
+
+        mockMvc.perform(post("/auth/yandex")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"access_token\":\"ya-token\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.access_token").value("access"));
+    }
+
+    @Test
+    void yandexRejectsBlankToken() throws Exception {
+        mockMvc.perform(post("/auth/yandex")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"access_token\":\"\"}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(authService);
+    }
+
+    @Test
+    void yandexReturnsErrorCodeInBody() throws Exception {
+        when(authService.yandex(any())).thenThrow(
+                new AuthApiException(HttpStatus.CONFLICT, AuthErrorCode.YANDEX_LINK_REQUIRED, "link"));
+
+        mockMvc.perform(post("/auth/yandex")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"access_token\":\"ya-token\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("YANDEX_LINK_REQUIRED"));
+    }
+
+    @Test
+    void changePasswordReturns204() throws Exception {
+        mockMvc.perform(post("/auth/change-password")
+                        .header("Authorization", "Bearer token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"current_password\":\"old-secret\",\"new_password\":\"new-secret\"}"))
+                .andExpect(status().isNoContent());
+
+        verify(authService).changePassword("Bearer token", "old-secret", "new-secret");
+    }
+
+    @Test
+    void changePasswordWorksWithoutCurrentPassword() throws Exception {
+        mockMvc.perform(post("/auth/change-password")
+                        .header("Authorization", "Bearer token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"new_password\":\"secret1\"}"))
+                .andExpect(status().isNoContent());
+
+        verify(authService).changePassword("Bearer token", null, "secret1");
+    }
+
+    @Test
+    void changePasswordRejectsShortNewPassword() throws Exception {
+        mockMvc.perform(post("/auth/change-password")
+                        .header("Authorization", "Bearer token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"new_password\":\"123\"}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(authService);
+    }
+
+    @Test
+    void changePasswordReturnsErrorCodeInBody() throws Exception {
+        doThrow(new AuthApiException(HttpStatus.FORBIDDEN, AuthErrorCode.INVALID_PASSWORD, "wrong"))
+                .when(authService).changePassword(any(), any(), any());
+
+        mockMvc.perform(post("/auth/change-password")
+                        .header("Authorization", "Bearer token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"current_password\":\"x\",\"new_password\":\"secret1\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("INVALID_PASSWORD"));
     }
 
 }

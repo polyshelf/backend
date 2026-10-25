@@ -7,7 +7,9 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.converter.RsaKeyConverters;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
 import java.io.IOException;
@@ -24,16 +26,25 @@ public class JwtConfig {
 
     @Bean
     public JwtEncoder jwtEncoder(JwtProperties properties) throws IOException, GeneralSecurityException {
+        RSAPrivateCrtKey privateKey = privateKey(properties);
+        RSAKey rsaKey = new RSAKey.Builder(publicKey(privateKey)).privateKey(privateKey).build();
+        return new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(rsaKey)));
+    }
+
+    @Bean
+    public JwtDecoder jwtDecoder(JwtProperties properties) throws IOException, GeneralSecurityException {
+        return NimbusJwtDecoder.withPublicKey(publicKey(privateKey(properties))).build();
+    }
+
+    private static RSAPrivateCrtKey privateKey(JwtProperties properties) throws IOException {
         try (InputStream in = properties.privateKeyLocation().getInputStream()) {
-            RSAPrivateCrtKey privateKey = (RSAPrivateCrtKey) RsaKeyConverters.pkcs8().convert(in);
-
-            RSAPublicKey publicKey = (RSAPublicKey) KeyFactory.getInstance("RSA").generatePublic(
-                    new RSAPublicKeySpec(privateKey.getModulus(), privateKey.getPublicExponent()));
-
-            RSAKey rsaKey = new RSAKey.Builder(publicKey).privateKey(privateKey).build();
-
-            return new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(rsaKey)));
+            return (RSAPrivateCrtKey) RsaKeyConverters.pkcs8().convert(in);
         }
+    }
+
+    private static RSAPublicKey publicKey(RSAPrivateCrtKey privateKey) throws GeneralSecurityException {
+        return (RSAPublicKey) KeyFactory.getInstance("RSA").generatePublic(
+                new RSAPublicKeySpec(privateKey.getModulus(), privateKey.getPublicExponent()));
     }
 
 }

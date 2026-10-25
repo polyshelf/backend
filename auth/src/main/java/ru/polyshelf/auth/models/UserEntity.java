@@ -34,9 +34,12 @@ public class UserEntity {
     @Column(name = "email", nullable = false, unique = true)
     private String email;
 
-    @NotNull
-    @Column(name = "password_hash", nullable = false, length = Integer.MAX_VALUE, columnDefinition = "text")
+    @Column(name = "password_hash", length = Integer.MAX_VALUE, columnDefinition = "text")
     private String passwordHash;
+
+    @Size(max = 64)
+    @Column(name = "yandex_id", unique = true)
+    private String yandexId;
 
     @NotNull
     @Enumerated(EnumType.STRING)

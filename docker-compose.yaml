@@ -75,6 +75,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "8"
       JWT_PRIVATE_KEY_LOCATION: file:/run/keys/private.pem
+      YANDEX_CLIENT_ID: ${YANDEX_CLIENT_ID:-}
     volumes:
       - ${JWT_KEYS_DIR:?задайте JWT_KEYS_DIR в .env}/private.pem:/run/keys/private.pem:ro
     depends_on:
