@@ -27,3 +27,7 @@ springdoc:
       - name: auth
         url: /auth-docs/v3/api-docs
     urls-primary-name: core
+
+openfoodfacts:
+  retry:
+    delay: PT10S

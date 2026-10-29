@@ -8,6 +8,8 @@ import org.springframework.web.server.ResponseStatusException;
 import ru.polyshelf.core.models.ProductEntity;
 import ru.polyshelf.core.repositories.ProductRepository;
 
+import java.util.List;
+
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -26,4 +28,15 @@ public class ProductService {
         }
     }
 
+    @Transactional
+    protected int upsertFromOffIfAbsent(List<ProductEntity> entities, String offSource) {
+        return productRepository
+                .upsertBatchFromOffIfAbsent(entities, offSource)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.INTERNAL_SERVER_ERROR,
+                                "Can't insert products to database"
+                        )
+                );
+    }
 }
