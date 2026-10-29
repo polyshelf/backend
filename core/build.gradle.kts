@@ -29,6 +29,8 @@ dependencies {
     implementation(libs.springdoc.openapi)
 
     implementation(libs.mapstruct.core)
+    implementation(libs.parquet.common)
+    implementation(libs.carpet.record)
 
     runtimeOnly(libs.postgresql)
 
