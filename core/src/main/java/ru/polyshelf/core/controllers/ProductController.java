@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import ru.polyshelf.core.dto.DatamatrixRequest;
 import ru.polyshelf.core.dto.InventoryItemResponse;
 import ru.polyshelf.core.dto.ProductResponse;
 import ru.polyshelf.core.dto.ProductWithBarcodeCandidateRequest;
@@ -40,6 +41,17 @@ public class ProductController {
             Sort sort
     ) {
         return ResponseEntity.ok(inventoryService.getInventory(user.userId(), sort));
+    }
+
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/from-datamatrix")
+    public ResponseEntity<ProductResponse> addWithDatamatrix(
+            @AuthenticationPrincipal UserPrincipal user,
+            @Valid @RequestBody DatamatrixRequest request
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(inventoryService.addWithDatamatrix(user.userId(), request));
     }
 
     @SecurityRequirement(name = "bearerAuth")

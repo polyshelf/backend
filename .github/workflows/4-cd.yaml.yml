@@ -40,7 +40,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        module: [core, auth, gateway]
+        module: [core, auth, gateway, datamatrix-adapter]
     name: build+push (${{ matrix.module }})
     steps:
       - uses: actions/checkout@v5
@@ -135,6 +135,18 @@ jobs:
           if [ "$status" != "healthy" ]; then
             docker compose ps -a
             docker compose logs --tail=80
+            exit 1
+          fi
+
+          adapter_status=""
+          for _ in $(seq 1 24); do
+            adapter_status=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q datamatrix-adapter)" 2>/dev/null || true)
+            [ "$adapter_status" = "healthy" ] && break
+            sleep 5
+          done
+          if [ "$adapter_status" != "healthy" ]; then
+            docker compose ps -a
+            docker compose logs --tail=80 datamatrix-adapter
             exit 1
           fi
 

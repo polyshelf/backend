@@ -9,6 +9,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import ru.polyshelf.core.dto.DatamatrixRequest;
+import ru.polyshelf.core.dto.DatamatrixResponse;
 import ru.polyshelf.core.dto.InventoryItemResponse;
 import ru.polyshelf.core.dto.ProductResponse;
 import ru.polyshelf.core.dto.ProductWithBarcodeRequest;
@@ -45,11 +47,63 @@ class InventoryServiceTest {
     @Mock
     private ProductCandidateService productCandidateService;
 
+    @Mock
+    private DatamatrixClient datamatrixClient;
+
     @InjectMocks
     private InventoryService inventoryService;
 
     private static final UUID USER_ID = UUID.randomUUID();
     private static final UUID ITEM_ID = UUID.randomUUID();
+
+    @Test
+    void addWithDatamatrix_shouldSaveCustomItem() {
+        UUID userId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        LocalDate expirationDate = LocalDate.of(2026, 11, 1);
+        DatamatrixRequest request = new DatamatrixRequest("010460123456789021ABC");
+        ProductResponse expected = new ProductResponse(itemId, "Молоко", expirationDate);
+
+        when(datamatrixClient.getProductInfo(request))
+                .thenReturn(new DatamatrixResponse("  Молоко  ", expirationDate));
+        when(inventoryRepository.save(any(InventoryItemEntity.class)))
+                .thenAnswer(invocation -> invocation.<InventoryItemEntity>getArgument(0).setId(itemId));
+        when(inventoryMapper.toProductResponse(any(InventoryItemEntity.class)))
+                .thenReturn(expected);
+
+        ProductResponse result = inventoryService.addWithDatamatrix(userId, request);
+
+        ArgumentCaptor<InventoryItemEntity> captor =
+                ArgumentCaptor.forClass(InventoryItemEntity.class);
+        verify(inventoryRepository).save(captor.capture());
+        InventoryItemEntity item = captor.getValue();
+
+        assertAll(
+                () -> assertEquals(userId, item.getUserId()),
+                () -> assertEquals("Молоко", item.getCustomName()),
+                () -> assertEquals(expirationDate, item.getExpirationDate()),
+                () -> assertNull(item.getProduct()),
+                () -> assertEquals(expected, result)
+        );
+        verify(datamatrixClient).getProductInfo(request);
+        verify(inventoryMapper).toProductResponse(item);
+    }
+
+    @Test
+    void addWithDatamatrix_shouldNotSaveWhenAdapterFails() {
+        UUID userId = UUID.randomUUID();
+        DatamatrixRequest request = new DatamatrixRequest("123");
+        when(datamatrixClient.getProductInfo(request))
+                .thenThrow(new IllegalStateException("Adapter unavailable"));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> inventoryService.addWithDatamatrix(userId, request)
+        );
+
+        assertEquals("Adapter unavailable", exception.getMessage());
+        verifyNoInteractions(inventoryRepository, inventoryMapper);
+    }
 
     @Test
     void addWithoutCode_shouldSaveItemAndReturnResponse() {
