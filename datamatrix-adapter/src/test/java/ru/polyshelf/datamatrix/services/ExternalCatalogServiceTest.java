@@ -75,9 +75,10 @@ class ExternalCatalogServiceTest {
                         {"productName":"Молоко"}
                         """, MediaType.APPLICATION_JSON));
 
+        DatamatrixRequest request = new DatamatrixRequest("123");
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> service.getCzInfo(new DatamatrixRequest("123"))
+                () -> service.getCzInfo(request)
         );
 
         assertEquals(BAD_GATEWAY, exception.getStatusCode());
@@ -89,9 +90,10 @@ class ExternalCatalogServiceTest {
         server.expect(requestTo("https://api.example.com/v2/mobile/check"))
                 .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
 
+        DatamatrixRequest request = new DatamatrixRequest("123");
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> service.getCzInfo(new DatamatrixRequest("123"))
+                () -> service.getCzInfo(request)
         );
 
         assertEquals(BAD_GATEWAY, exception.getStatusCode());

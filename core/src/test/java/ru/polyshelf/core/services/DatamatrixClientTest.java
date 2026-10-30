@@ -11,6 +11,7 @@ import ru.polyshelf.core.dto.DatamatrixRequest;
 import ru.polyshelf.core.dto.DatamatrixResponse;
 
 import java.time.LocalDate;
+import java.time.Month;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.http.HttpStatus.BAD_GATEWAY;
@@ -45,7 +46,7 @@ class DatamatrixClientTest {
 
         assertAll(
                 () -> assertEquals("Молоко", result.name()),
-                () -> assertEquals(LocalDate.of(2026, 11, 1), result.expirationDate())
+                () -> assertEquals(LocalDate.of(2026, Month.NOVEMBER, 1), result.expirationDate())
         );
         server.verify();
     }
@@ -55,9 +56,10 @@ class DatamatrixClientTest {
         server.expect(requestTo("http://localhost:8083/catalog/datamatrix"))
                 .andRespond(withServerError());
 
+        DatamatrixRequest request = new DatamatrixRequest("123");
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> client.getProductInfo(new DatamatrixRequest("123"))
+                () -> client.getProductInfo(request)
         );
 
         assertEquals(BAD_GATEWAY, exception.getStatusCode());
@@ -71,9 +73,10 @@ class DatamatrixClientTest {
                         {"name":"","expirationDate":"2026-11-01"}
                         """, MediaType.APPLICATION_JSON));
 
+        DatamatrixRequest request = new DatamatrixRequest("123");
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> client.getProductInfo(new DatamatrixRequest("123"))
+                () -> client.getProductInfo(request)
         );
 
         assertEquals(BAD_GATEWAY, exception.getStatusCode());
