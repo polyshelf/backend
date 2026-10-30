@@ -4,5 +4,6 @@ include(
     "core",
     "gateway",
     "auth",
-    "datamatrix-adapter"
+    "datamatrix-adapter",
+    "integration-tests"
 )
