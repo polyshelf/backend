@@ -39,6 +39,8 @@ public class AuthService {
     private final YandexClient yandexClient;
     private final JwtDecoder jwtDecoder;
 
+    private static final String LOGIN_REQUIRED_MESSAGE = "Требуется авторизация";
+
     @Transactional
     public AuthTokensResponse register(AuthCredentials credentials) {
         String email = normalize(credentials.email());
@@ -122,7 +124,7 @@ public class AuthService {
     @Transactional
     public void changePassword(String authorization, String currentPassword, String newPassword) {
         UserEntity user = userRepository.findById(userId(authorization))
-                .orElseThrow(() -> unauthorized("Требуется авторизация"));
+                .orElseThrow(() -> unauthorized(LOGIN_REQUIRED_MESSAGE));
         if (user.getPasswordHash() != null
                 && (currentPassword == null || !passwordEncoder.matches(currentPassword, user.getPasswordHash()))) {
             throw new AuthApiException(HttpStatus.FORBIDDEN, AuthErrorCode.INVALID_PASSWORD, "Неверный текущий пароль");
@@ -132,12 +134,12 @@ public class AuthService {
 
     private UUID userId(String authorization) {
         if (authorization == null || !authorization.startsWith("Bearer ")) {
-            throw unauthorized("Требуется авторизация");
+            throw unauthorized(LOGIN_REQUIRED_MESSAGE);
         }
         try {
-            return UUID.fromString(jwtDecoder.decode(authorization.substring("Bearer ".length())).getSubject());
+            return UUID.fromString(Objects.requireNonNull(jwtDecoder.decode(authorization.substring("Bearer ".length())).getSubject()));
         } catch (JwtException | IllegalArgumentException _) {
-            throw unauthorized("Требуется авторизация");
+            throw unauthorized(LOGIN_REQUIRED_MESSAGE);
         }
     }
 

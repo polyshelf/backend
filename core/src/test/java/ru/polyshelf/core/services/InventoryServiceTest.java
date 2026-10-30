@@ -60,7 +60,7 @@ class InventoryServiceTest {
     void addWithDatamatrix_shouldSaveCustomItem() {
         UUID userId = UUID.randomUUID();
         UUID itemId = UUID.randomUUID();
-        LocalDate expirationDate = LocalDate.of(2026, 11, 1);
+        LocalDate expirationDate = LocalDate.of(2026, Month.NOVEMBER, 1);
         DatamatrixRequest request = new DatamatrixRequest("010460123456789021ABC");
         ProductResponse expected = new ProductResponse(itemId, "Молоко", expirationDate);
 

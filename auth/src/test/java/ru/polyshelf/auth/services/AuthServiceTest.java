@@ -19,11 +19,11 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.web.server.ResponseStatusException;
 import ru.polyshelf.auth.dto.AuthCredentials;
 import ru.polyshelf.auth.dto.AuthTokensResponse;
-import ru.polyshelf.auth.models.UserEntity;
-import ru.polyshelf.auth.repositories.UserRepository;
 import ru.polyshelf.auth.dto.YandexAuthRequest;
 import ru.polyshelf.auth.exception.AuthApiException;
 import ru.polyshelf.auth.exception.AuthErrorCode;
+import ru.polyshelf.auth.models.UserEntity;
+import ru.polyshelf.auth.repositories.UserRepository;
 import ru.polyshelf.auth.security.AuthUserDetails;
 import ru.polyshelf.auth.yandex.YandexClient;
 import ru.polyshelf.auth.yandex.YandexProfile;
@@ -222,8 +222,9 @@ class AuthServiceTest {
         when(yandexClient.fetchProfile("tok")).thenReturn(PROFILE);
         when(userRepository.findByEmail("ivan@yandex.ru")).thenReturn(Optional.of(user));
 
+        YandexAuthRequest request = new YandexAuthRequest("tok", null);
         AuthApiException ex = assertThrows(AuthApiException.class,
-                () -> authService.yandex(new YandexAuthRequest("tok", null)));
+                () -> authService.yandex(request));
 
         assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
         assertEquals(AuthErrorCode.YANDEX_LINK_REQUIRED, ex.getCode());
@@ -250,8 +251,9 @@ class AuthServiceTest {
         when(yandexClient.fetchProfile("tok")).thenReturn(PROFILE);
         when(userRepository.findByEmail("ivan@yandex.ru")).thenReturn(Optional.of(user));
 
+        YandexAuthRequest request = new YandexAuthRequest("tok", "wrong-pass");
         AuthApiException ex = assertThrows(AuthApiException.class,
-                () -> authService.yandex(new YandexAuthRequest("tok", "wrong-pass")));
+                () -> authService.yandex(request));
 
         assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatusCode());
         assertNull(user.getYandexId());
@@ -334,7 +336,7 @@ class AuthServiceTest {
 
     @Test
     void changePasswordRejectsUnknownUser() {
-        when(jwtDecoder.decode("token")).thenReturn(jwtFor(USER_ID));
+        when(jwtDecoder.decode("token")).thenReturn(jwtFor());
         when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
@@ -344,12 +346,12 @@ class AuthServiceTest {
     }
 
     private void authorizeAsUser() {
-        when(jwtDecoder.decode("token")).thenReturn(jwtFor(USER_ID));
+        when(jwtDecoder.decode("token")).thenReturn(jwtFor());
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
     }
 
-    private static Jwt jwtFor(UUID id) {
-        return Jwt.withTokenValue("token").header("alg", "RS256").subject(id.toString()).build();
+    private static Jwt jwtFor() {
+        return Jwt.withTokenValue("token").header("alg", "RS256").subject(AuthServiceTest.USER_ID.toString()).build();
     }
 
 }

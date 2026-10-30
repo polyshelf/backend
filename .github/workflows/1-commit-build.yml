@@ -14,6 +14,7 @@ on:
           - auth
           - gateway
           - datamatrix-adapter
+          - integration-tests
 
 concurrency:
   group: commit-${{ github.ref }}
@@ -31,7 +32,7 @@ jobs:
           MODULE: ${{ inputs.module }}
         run: |
           if [ "$MODULE" = "all" ]; then
-            matrix='["core","auth","gateway","datamatrix-adapter"]'
+            matrix='["core","auth","gateway","datamatrix-adapter","integration-tests"]'
           else
             matrix="[\"$MODULE\"]"
           fi
@@ -92,3 +93,27 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew :${{ matrix.dir }}:test --no-daemon
+
+  integration-test:
+    needs: [detect, build]
+    if: inputs.module == 'all' || inputs.module == 'integration-tests'
+    runs-on: ubuntu-latest
+    name: integration tests
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('**/*.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-
+      - name: Run integration tests
+        run: |
+          chmod +x gradlew
+          ./gradlew :integration-tests:integrationTest --no-daemon
