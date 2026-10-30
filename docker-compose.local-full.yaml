@@ -43,7 +43,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-polyshelf_db}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-polyshelf_user}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
-      DATAMATRIX_ADAPTER_URL: ${DATAMATRIX_ADAPTER_URL:-http://localhost:8083}
+      DATAMATRIX_ADAPTER_URL: http://datamatrix-adapter:8083
       JWT_PUBLIC_KEY_LOCATION: file:/run/keys/public.pem
     volumes:
       - ${JWT_KEYS_DIR:?задайте JWT_KEYS_DIR в .env}/public.pem:/run/keys/public.pem:ro

@@ -13,6 +13,7 @@ on:
           - core
           - auth
           - gateway
+          - datamatrix-adapter
 
 concurrency:
   group: commit-${{ github.ref }}
@@ -30,7 +31,7 @@ jobs:
           MODULE: ${{ inputs.module }}
         run: |
           if [ "$MODULE" = "all" ]; then
-            matrix='["core","auth","gateway"]'
+            matrix='["core","auth","gateway","datamatrix-adapter"]'
           else
             matrix="[\"$MODULE\"]"
           fi
