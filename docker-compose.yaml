@@ -50,6 +50,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-polyshelf_user}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "8"
+      DATAMATRIX_ADAPTER_URL: ${DATAMATRIX_ADAPTER_URL:-http://localhost:8083}
       JWT_PUBLIC_KEY_LOCATION: file:/run/keys/public.pem
     volumes:
       - ${JWT_KEYS_DIR:?задайте JWT_KEYS_DIR в .env}/public.pem:/run/keys/public.pem:ro
@@ -62,6 +63,23 @@ services:
       timeout: 3s
       retries: 10
       start_period: 60s
+    networks: [backend]
+
+  datamatrix-adapter:
+    image: ghcr.io/polyshelf/backend-datamatrix-adapter:${TAG:?required}
+    restart: unless-stopped
+    mem_limit: 448m
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65 -XX:+ExitOnOutOfMemoryError
+      EXTERNAL_PROXY_ENABLED: ${EXTERNAL_PROXY_ENABLED:-false}
+      EXTERNAL_PROXY_HOST: ${EXTERNAL_PROXY_HOST:-}
+      EXTERNAL_PROXY_PORT: ${EXTERNAL_PROXY_PORT:-3128}
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8083'"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 40s
     networks: [backend]
 
   auth:

@@ -6,6 +6,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import ru.polyshelf.core.dto.DatamatrixRequest;
+import ru.polyshelf.core.dto.DatamatrixResponse;
 import ru.polyshelf.core.dto.InventoryItemResponse;
 import ru.polyshelf.core.dto.ProductResponse;
 import ru.polyshelf.core.dto.ProductWithBarcodeCandidateRequest;
@@ -39,6 +41,7 @@ public class InventoryService {
     private final InventoryMapper inventoryMapper;
     private final ProductService productService;
     private final ProductCandidateService productCandidateService;
+    private final DatamatrixClient datamatrixClient;
 
     public List<InventoryItemResponse> getInventory(UUID userId, Sort sort) {
         for (Sort.Order order : sort) {
@@ -51,6 +54,12 @@ public class InventoryService {
                 .stream()
                 .map(inventoryMapper::toInventoryItemResponse)
                 .toList();
+    }
+
+    @Transactional
+    public ProductResponse addWithDatamatrix(UUID userId, DatamatrixRequest request) {
+        DatamatrixResponse info = datamatrixClient.getProductInfo(request);
+        return saveCustom(userId, info.name(), info.expirationDate());
     }
 
     @Transactional

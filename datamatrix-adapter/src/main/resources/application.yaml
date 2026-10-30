@@ -1,3 +1,11 @@
 spring:
   application:
     name: datamatrix-adapter
+external-api:
+  base-url: https://mobile.api.crpt.ru
+  proxy:
+    enabled: ${EXTERNAL_PROXY_ENABLED:false}
+    host: ${EXTERNAL_PROXY_HOST:}
+    port: ${EXTERNAL_PROXY_PORT:3128}
+server:
+  port: 8083
