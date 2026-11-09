@@ -39,14 +39,13 @@ public class OpenFoodFactsImportService {
     private CloseableIterator<OffProductDto> reader;
     private long readerNextRow;
     private Batch pendingBatch;
+    private String pendingRevision;
     private boolean initialized;
-    private boolean selectRevision;
 
     @EventListener(ApplicationReadyEvent.class)
     public synchronized void initializeProgress() {
         if (!initialized) {
             history = historyService.load(SOURCE).orElse(null);
-            selectRevision = history == null || history.nextRow() == 0;
             initialized = true;
             log.info("Loaded OFF progress: revision={}, nextRow={}",
                     history == null ? null : history.revision(), history == null ? 0 : history.nextRow());
@@ -61,18 +60,27 @@ public class OpenFoodFactsImportService {
                 pendingBatch = readWithRecovery();
             }
             // Keep the batch on database failure instead of advancing the iterator again.
-            history = historyService.commitBatch(history, pendingBatch.products(), pendingBatch.nextRow());
             boolean completed = pendingBatch.completed();
+            if (completed) {
+                if (pendingRevision == null) {
+                    pendingRevision = source.latestRevision();
+                }
+                // Resolve outside the transaction; switch SHA only with the final batch commit.
+                history = historyService.completePass(history, pendingBatch.products(), pendingRevision);
+            } else {
+                history = historyService.commitBatch(history, pendingBatch.products(), pendingBatch.nextRow());
+            }
             log.info("Committed OFF batch: products={}, nextRow={}, completed={}",
                     pendingBatch.products().size(), history.nextRow(), completed);
             pendingBatch = null;
+            pendingRevision = null;
             if (completed) {
-                selectRevision = true;
                 closeReader();
             }
         } catch (OptimisticLockingFailureException e) {
             // Another process (or an uncertain previous commit) moved the checkpoint.
             pendingBatch = null;
+            pendingRevision = null;
             initialized = false;
             discardReader(e);
             throw e;
@@ -116,9 +124,8 @@ public class OpenFoodFactsImportService {
         if (reader != null) {
             return;
         }
-        if (selectRevision) {
-            history = historyService.startPass(SOURCE, source.latestRevision(), history);
-            selectRevision = false;
+        if (history == null) {
+            history = historyService.startPass(SOURCE, source.latestRevision(), null);
         }
         reader = source.open(history.revision());
         readerNextRow = 0;

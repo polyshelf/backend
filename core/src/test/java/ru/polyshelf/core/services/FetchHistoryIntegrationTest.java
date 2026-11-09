@@ -81,4 +81,35 @@ class FetchHistoryIntegrationTest {
         assertEquals(REVISION, history.load(SOURCE).orElseThrow().revision());
         assertEquals(10000, history.load(SOURCE).orElseThrow().nextRow());
     }
+
+    @Test
+    void finalBatchAndNewShaCommitTogether() {
+        var before = history.startPass(SOURCE, REVISION, null);
+        var progress = history.commitBatch(before, List.of(), 10000);
+        String nextRevision = "b".repeat(40);
+
+        var saved = history.completePass(progress,
+                List.of(new ProductEntity().setBarcode("fetch-test-final").setName("Final product")), nextRevision);
+
+        assertEquals(saved, history.load(SOURCE).orElseThrow());
+        assertEquals(nextRevision, saved.revision());
+        assertEquals(0, saved.nextRow());
+        assertEquals("Final product", jdbc.queryForObject(
+                "SELECT name FROM product_in_catalog WHERE barcode = 'fetch-test-final'", String.class));
+    }
+
+    @Test
+    void failedFinalBatchDoesNotChangeShaOrOffset() {
+        var before = history.startPass(SOURCE, REVISION, null);
+        var progress = history.commitBatch(before, List.of(), 10000);
+        var valid = new ProductEntity().setBarcode("fetch-test-final-rollback").setName("Valid");
+        var invalid = new ProductEntity().setName("Missing barcode");
+
+        assertThrows(DataAccessException.class,
+                () -> history.completePass(progress, List.of(valid, invalid), "b".repeat(40)));
+
+        assertEquals(progress, history.load(SOURCE).orElseThrow());
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM product_in_catalog WHERE barcode = ?",
+                Integer.class, valid.getBarcode()));
+    }
 }

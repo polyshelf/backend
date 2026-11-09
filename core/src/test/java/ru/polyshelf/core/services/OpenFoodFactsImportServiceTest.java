@@ -57,6 +57,13 @@ class OpenFoodFactsImportServiceTest {
             durable.set(saved);
             return saved;
         });
+        lenient().when(store.completePass(any(), anyList(), anyString())).thenAnswer(call -> {
+            FetchHistory before = call.getArgument(0);
+            assertEquals(durable.get(), before);
+            var saved = checkpoint(call.getArgument(2), 0);
+            durable.set(saved);
+            return saved;
+        });
         lenient().when(mapper.toProductEntity(any())).thenAnswer(call -> {
             OffProductDto dto = call.getArgument(0);
             return new ProductEntity().setBarcode(dto.code()).setName(dto.code());
@@ -171,7 +178,7 @@ class OpenFoodFactsImportServiceTest {
     }
 
     @Test
-    void fullFinalBatchClosesReaderAndNextPassSelectsANewRevision() throws IOException {
+    void fullFinalBatchCommitsNextRevisionBeforeNextScheduledRun() throws IOException {
         String nextRevision = "b".repeat(40);
         when(source.latestRevision()).thenReturn(REVISION, nextRevision);
         var first = products(2);
@@ -181,11 +188,78 @@ class OpenFoodFactsImportServiceTest {
 
         service.importProducts();
         assertEquals(0, durable.get().nextRow());
+        assertEquals(nextRevision, durable.get().revision());
         verify(first).close();
+        verify(source, times(2)).latestRevision();
         service.importProducts();
 
         assertEquals(nextRevision, durable.get().revision());
         assertEquals(2, durable.get().nextRow());
+        verify(source, times(2)).latestRevision();
+    }
+
+    @Test
+    void restartAtZeroUsesRevisionAlreadySelectedByPreviousPass() throws IOException {
+        String pinned = "b".repeat(40);
+        durable.set(checkpoint(pinned, 0));
+        var rows = products(3);
+        when(source.open(pinned)).thenReturn(rows);
+
+        service.importProducts();
+
+        assertEquals(pinned, durable.get().revision());
+        assertEquals(2, durable.get().nextRow());
+        verify(source, never()).latestRevision();
+    }
+
+    @Test
+    void finalBatchDatabaseFailureKeepsOldRevisionAndRetriesTheSameBatchAndSelectedSha() throws IOException {
+        String nextRevision = "b".repeat(40);
+        durable.set(checkpoint(REVISION, 2));
+        when(source.latestRevision()).thenReturn(nextRevision);
+        var rows = products(4);
+        when(source.open(REVISION)).thenReturn(rows);
+        doThrow(new IllegalStateException("Database unavailable"))
+                .doAnswer(call -> {
+                    var saved = checkpoint(call.getArgument(2), 0);
+                    durable.set(saved);
+                    return saved;
+                }).when(store).completePass(any(), anyList(), anyString());
+
+        assertThrows(IllegalStateException.class, service::importProducts);
+        assertEquals(REVISION, durable.get().revision());
+        assertEquals(2, durable.get().nextRow());
+        service.importProducts();
+
+        var batches = completedBatches(2);
+        assertSame(batches.getFirst(), batches.getLast());
+        assertEquals(nextRevision, durable.get().revision());
+        assertEquals(0, durable.get().nextRow());
+        verify(source).latestRevision();
+        verify(source).open(REVISION);
+        verify(rows, times(4)).next();
+    }
+
+    @Test
+    void shaLookupFailureRetainsFinalBatchAndCheckpointUntilNextAttempt() throws IOException {
+        String nextRevision = "b".repeat(40);
+        durable.set(checkpoint(REVISION, 2));
+        when(source.latestRevision()).thenThrow(new IOException("Hub unavailable")).thenReturn(nextRevision);
+        var rows = products(4);
+        when(source.open(REVISION)).thenReturn(rows);
+
+        assertThrows(IOException.class, service::importProducts);
+        assertEquals(REVISION, durable.get().revision());
+        assertEquals(2, durable.get().nextRow());
+        verify(store, never()).completePass(any(), anyList(), anyString());
+        service.importProducts();
+
+        assertEquals(nextRevision, durable.get().revision());
+        assertEquals(0, durable.get().nextRow());
+        assertEquals(List.of("2", "3"), completedBatches(1).getFirst().stream()
+                .map(ProductEntity::getBarcode).toList());
+        verify(source).open(REVISION);
+        verify(rows, times(4)).next();
     }
 
     @Test
@@ -241,6 +315,13 @@ class OpenFoodFactsImportServiceTest {
     private List<List<ProductEntity>> batches(int calls) {
         ArgumentCaptor<List<ProductEntity>> captor = ArgumentCaptor.forClass((Class) List.class);
         verify(store, times(calls)).commitBatch(any(), captor.capture(), anyLong());
+        return captor.getAllValues();
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private List<List<ProductEntity>> completedBatches(int calls) {
+        ArgumentCaptor<List<ProductEntity>> captor = ArgumentCaptor.forClass((Class) List.class);
+        verify(store, times(calls)).completePass(any(), captor.capture(), anyString());
         return captor.getAllValues();
     }
 }

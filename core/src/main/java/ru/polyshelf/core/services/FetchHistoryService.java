@@ -36,11 +36,20 @@ public class FetchHistoryService {
 
     @Transactional
     public FetchHistory commitBatch(FetchHistory expected, List<ProductEntity> products, long nextRow) {
+        return saveBatch(expected, products, expected.revision(), nextRow);
+    }
+
+    @Transactional
+    public FetchHistory completePass(FetchHistory expected, List<ProductEntity> products, String nextRevision) {
+        return saveBatch(expected, products, nextRevision, 0);
+    }
+
+    private FetchHistory saveBatch(FetchHistory expected, List<ProductEntity> products, String revision, long nextRow) {
         assertCurrent(expected);
         if (!products.isEmpty()) {
             productService.upsertFromOffIfAbsent(products, expected.source());
         }
-        return repository.update(expected.source(), expected.revision(), nextRow);
+        return repository.update(expected.source(), revision, nextRow);
     }
 
     private void assertCurrent(FetchHistory expected) {
