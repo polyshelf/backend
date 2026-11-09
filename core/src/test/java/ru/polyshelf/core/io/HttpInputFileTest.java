@@ -13,6 +13,7 @@ import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -125,6 +126,43 @@ class HttpInputFileTest {
                         org.mockito.ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any());
         try (var stream = file.newStream()) {
             assertThrows(IOException.class, stream::read);
+        }
+    }
+
+    @Test
+    void rangeRetryDoesNotMovePositionUntilAllBytesHaveArrived() throws Exception {
+        HttpInputFile file = new HttpInputFile(client, URI,
+                new HttpRetryExecutor(3, Duration.ZERO, Duration.ZERO), Duration.ofSeconds(30));
+        var truncated = response(206, "bytes 0-1048575/" + data.length, new byte[]{data[0]});
+        var complete = response(206, "bytes 0-1048575/" + data.length, Arrays.copyOf(data, 1024 * 1024));
+        doReturn(truncated, complete).when(client).send(any(HttpRequest.class),
+                org.mockito.ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any());
+
+        try (var stream = file.newStream()) {
+            byte[] actual = new byte[5];
+            stream.readFully(actual);
+            assertArrayEquals(Arrays.copyOf(data, 5), actual);
+            assertEquals(5, stream.getPos());
+        }
+        var captured = org.mockito.ArgumentCaptor.forClass(HttpRequest.class);
+        verify(client, times(3)).send(captured.capture(),
+                org.mockito.ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any());
+        assertEquals(captured.getAllValues().get(1).headers(), captured.getAllValues().get(2).headers());
+    }
+
+    @Test
+    void changingVersionWithSameFileLengthIsRejected() throws Exception {
+        HttpInputFile file = new HttpInputFile(client, URI);
+        var changed = response(206, "bytes 0-1048575/" + data.length, Arrays.copyOf(data, 1024 * 1024));
+        when(changed.headers()).thenReturn(HttpHeaders.of(Map.of(
+                "Content-Range", List.of("bytes 0-1048575/" + data.length),
+                "ETag", List.of("\"version-2\"")), (name, value) -> true));
+        doReturn(changed).when(client).send(any(HttpRequest.class),
+                org.mockito.ArgumentMatchers.<HttpResponse.BodyHandler<InputStream>>any());
+
+        try (var stream = file.newStream()) {
+            assertThrows(HttpRetryExecutor.PermanentHttpException.class, stream::read);
+            assertEquals(0, stream.getPos());
         }
     }
 

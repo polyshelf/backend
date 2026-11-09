@@ -10,7 +10,6 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -25,11 +24,20 @@ public final class HttpInputFile implements InputFile {
     private final URI uri;
     private final long length;
     private final String validator;
+    private final HttpRetryExecutor retry;
+    private final Duration requestTimeout;
 
     /** The supplied client should follow redirects for download URLs. */
     public HttpInputFile(HttpClient client, URI uri) throws IOException {
+        this(client, uri, new HttpRetryExecutor(3, Duration.ofSeconds(1), Duration.ofSeconds(30)),
+                Duration.ofSeconds(30));
+    }
+
+    public HttpInputFile(HttpClient client, URI uri, HttpRetryExecutor retry, Duration requestTimeout) throws IOException {
         this.client = Objects.requireNonNull(client);
         this.uri = Objects.requireNonNull(uri);
+        this.retry = Objects.requireNonNull(retry);
+        this.requestTimeout = Objects.requireNonNull(requestTimeout);
         Range first = fetch(0, 0, null);
         this.length = first.total();
         this.validator = first.validator();
@@ -63,39 +71,31 @@ public final class HttpInputFile implements InputFile {
 
     private Range fetch(long start, long end, String ifRange) throws IOException {
         HttpRequest.Builder request = HttpRequest.newBuilder(uri)
-                .timeout(Duration.ofSeconds(30))
+                .timeout(requestTimeout)
                 .header("Accept-Encoding", "identity")
                 .header("Range", "bytes=" + start + "-" + end);
         if (ifRange != null) {
             request.header("If-Range", ifRange);
         }
 
-        HttpResponse<InputStream> response;
-        try {
-            response = client.send(request.build(), HttpResponse.BodyHandlers.ofInputStream());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("Interrupted while reading HTTP range", e);
-        }
-
-        try (InputStream body = response.body()) {
+        return retry.execute(client, request.build(), (response, body) -> {
             if (response.statusCode() != 206) {
-                throw new IOException("Expected HTTP 206; got " + response.statusCode()
+                throw new HttpRetryExecutor.PermanentHttpException("Expected HTTP 206; got " + response.statusCode()
                         + " (range unsupported or file changed)");
             }
             var range = CONTENT_RANGE.matcher(response.headers().firstValue("Content-Range").orElse(""));
             if (!range.matches() || !range.group(1).equals(Long.toString(start))
                     || !range.group(2).equals(Long.toString(end))) {
-                throw new IOException("Unexpected Content-Range");
+                throw new HttpRetryExecutor.PermanentHttpException("Unexpected Content-Range");
             }
             long total;
             try {
                 total = Long.parseLong(range.group(3));
             } catch (NumberFormatException e) {
-                throw new IOException("Invalid file length in Content-Range", e);
+                throw new HttpRetryExecutor.PermanentHttpException("Invalid file length in Content-Range");
             }
             if (total <= end) {
-                throw new IOException("Invalid file length in Content-Range");
+                throw new HttpRetryExecutor.PermanentHttpException("Invalid file length in Content-Range");
             }
             int expected = Math.toIntExact(end - start + 1);
             byte[] bytes = body.readNBytes(expected);
@@ -105,8 +105,11 @@ public final class HttpInputFile implements InputFile {
             String version = response.headers().firstValue("ETag")
                     .filter(etag -> !etag.startsWith("W/"))
                     .orElseGet(() -> response.headers().firstValue("Last-Modified").orElse(null));
+            if (ifRange != null && version != null && !ifRange.equals(version)) {
+                throw new HttpRetryExecutor.PermanentHttpException("Remote file version changed");
+            }
             return new Range(total, version, bytes);
-        }
+        });
     }
 
     private record Range(long total, String validator, byte[] bytes) {}

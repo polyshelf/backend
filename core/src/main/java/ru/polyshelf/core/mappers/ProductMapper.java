@@ -7,6 +7,7 @@ import ru.polyshelf.core.dto.OffProductDto;
 import ru.polyshelf.core.models.ProductEntity;
 
 import java.util.List;
+import java.util.Objects;
 
 @Mapper(componentModel = "spring")
 public interface ProductMapper {
@@ -21,6 +22,7 @@ public interface ProductMapper {
         }
 
         return names.stream()
+                .filter(Objects::nonNull)
                 .filter(n -> "main".equals(n.lang()) && n.text() != null)
                 .map(text -> text.text().substring(0, Math.min(text.text().length(), 255)))
                 .findFirst()

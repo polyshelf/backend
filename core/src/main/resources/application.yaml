@@ -32,5 +32,14 @@ springdoc:
     urls-primary-name: core
 
 openfoodfacts:
-  retry:
-    delay: PT10S
+  cron: "0 */20 * * * *"
+  batch-size: 10000
+  http:
+    max-attempts: 3
+    retry-delay: PT1S
+    max-retry-delay: PT30S
+    request-timeout: PT30S
+    connect-timeout: PT10S
+  reader:
+    max-attempts: 2
+    retry-delay: PT5S
