@@ -32,8 +32,8 @@ springdoc:
     urls-primary-name: core
 
 openfoodfacts:
-  cron: "0 */20 * * * *"
-  batch-size: 10000
+  cron: "0 0 0,4,8,12,16,20 * * *"
+  batch-size: 1000000
   http:
     max-attempts: 3
     retry-delay: PT1S

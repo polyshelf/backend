@@ -43,9 +43,11 @@ services:
   core:
     image: ghcr.io/polyshelf/backend-core:${TAG:?required}
     restart: unless-stopped
-    mem_limit: 448m
+    mem_limit: 1700m
     environment:
-      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65 -XX:+ExitOnOutOfMemoryError
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError
+      OPENFOODFACTS_BATCH_SIZE: "1000000"
+      OPENFOODFACTS_CRON: "0 0 0,4,8,12,16,20 * * *"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-polyshelf_db}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-polyshelf_user}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
