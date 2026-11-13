@@ -43,7 +43,7 @@ public class ProductEntity {
 
     @Size(max = 255)
     @NotNull
-    @Column(name = "name", nullable = false)
+    @Column(name = "name", nullable = false, length = 255)
     private String name;
 
     @NotNull

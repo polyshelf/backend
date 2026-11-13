@@ -7,7 +7,7 @@ import ru.polyshelf.core.models.ProductEntity;
 import java.util.Optional;
 
 @Repository
-public interface ProductRepository extends JpaRepository<ProductEntity, Integer> {
+public interface ProductRepository extends JpaRepository<ProductEntity, Integer>, ProductRepositoryCustom {
 
     Optional<ProductEntity> findByBarcode(String barcode);
 

@@ -30,3 +30,16 @@ springdoc:
       - name: auth
         url: /auth-docs/v3/api-docs
     urls-primary-name: core
+
+openfoodfacts:
+  cron: "0 0 0,4,8,12,16,20 * * *"
+  batch-size: 1000000
+  http:
+    max-attempts: 3
+    retry-delay: PT1S
+    max-retry-delay: PT30S
+    request-timeout: PT30S
+    connect-timeout: PT10S
+  reader:
+    max-attempts: 2
+    retry-delay: PT5S
